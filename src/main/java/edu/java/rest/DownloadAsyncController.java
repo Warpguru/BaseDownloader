@@ -502,4 +502,107 @@ public class DownloadAsyncController {
 				.build();
 	}
 
+	/**
+	 * Returns an HTML overview page listing all download tasks currently held in the registry,
+	 * each with a clickable link to its status page.
+	 * <p>
+	 * The credential used to reach this page (either {@code apikey} query parameter or
+	 * {@code Authorization} header) is threaded into every status link so the user can navigate
+	 * directly without re-entering credentials.
+	 * </p>
+	 *
+	 * @param authString optional {@code Authorization} header value (Basic or Bearer)
+	 * @param apikey     optional API key query parameter (alternative to the header)
+	 * @return 200 OK with an HTML task-list page, 401 if not authenticated
+	 */
+	//@formatter:off
+	@Operation(
+		summary = "List all download tasks",
+		description = "Returns an HTML overview of all download tasks in the registry, "
+				+ "with links to the individual status pages.")
+	@APIResponses(value = {
+		@APIResponse(
+			responseCode = "200",
+			description = "Task list page returned successfully.",
+			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class))),
+		@APIResponse(
+			responseCode = "401",
+			description = "Unauthorized &mdash; no valid Basic or Bearer authentication was provided.",
+			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class)))
+	})
+	@SecurityRequirements(value = {
+		@SecurityRequirement(name = "BasicAuthentication"),
+		@SecurityRequirement(name = "BearerAuthentication")})
+	//@formatter:on
+	@GET
+	@Path("list")
+	@Produces(MediaType.TEXT_HTML)
+	public Response listDownloads(
+			@Parameter(name = "Authorization", description = "Optional Basic or Bearer Authorization header",
+					in = ParameterIn.HEADER, required = false, hidden = true,
+					schema = @Schema(implementation = String.class))
+			@HeaderParam("Authorization") final String authString,
+			@Parameter(name = "apikey", description = "API key (alternative to Authorization header)",
+					in = ParameterIn.QUERY, required = false,
+					schema = @Schema(implementation = String.class))
+			@QueryParam("apikey") final String apikey) {
+
+        // Enforce authentication (basic and bearer are equivalent)
+        final Response authResponse = authService.enforceAuth(authString, "Bearer " + apikey);
+		if (authResponse != null) {
+			return authResponse;
+		}
+
+		// Build credential suffix to carry auth through status page links
+		String credSuffix = "";
+		if (apikey != null) {
+			credSuffix = "?apikey=" + apikey;
+		} else if (authString != null) {
+			try {
+				credSuffix = "?apikey=" + java.net.URLEncoder.encode(authString, "UTF-8");
+			} catch (java.io.UnsupportedEncodingException e) {
+				// UTF-8 is always supported; never reached
+			}
+		}
+
+		final java.util.Collection<DownloadTask> tasks = registry.retrieveAll();
+		final StringBuilder sb = new StringBuilder();
+
+		sb.append("<!DOCTYPE html><html><head><title>BaseDownloader &mdash; Downloads</title></head><body>");
+		sb.append("<h2>Active Download Tasks</h2>");
+
+		if (tasks.isEmpty()) {
+			sb.append("<p>No download tasks registered.</p>");
+		} else {
+			sb.append("<table border=\"1\" cellpadding=\"4\" cellspacing=\"0\">");
+			sb.append("<tr>")
+			  .append("<th>UUID</th>")
+			  .append("<th>File</th>")
+			  .append("<th>Status</th>")
+			  .append("<th>Chunks</th>")
+			  .append("<th>Submitted</th>")
+			  .append("<th>Expires</th>")
+			  .append("</tr>");
+			for (final DownloadTask task : tasks) {
+				final String statusLink = "/base-downloader/api/download/" + task.getUuid() + credSuffix;
+				sb.append("<tr>");
+				sb.append("<td><a href=\"").append(statusLink).append("\">").append(task.getUuid()).append("</a></td>");
+				sb.append("<td>").append(task.getOriginalFileName()).append("</td>");
+				sb.append("<td>").append(task.getStatus()).append("</td>");
+				final int available = task.getNumberOfChunks();
+				final int total = task.getTotalChunks();
+				sb.append("<td>").append(available)
+				  .append(total >= 0 ? " / " + total : " / ?")
+				  .append("</td>");
+				sb.append("<td>").append(task.getSubmittedAt()).append("</td>");
+				sb.append("<td>").append(task.getExpiresAt()).append("</td>");
+				sb.append("</tr>");
+			}
+			sb.append("</table>");
+		}
+
+		sb.append("</body></html>");
+		return Response.ok(sb.toString()).build();
+	}
+
 }

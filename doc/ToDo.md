@@ -261,7 +261,7 @@ On `DownloadAsyncController`, add a `GET` method `getChunk` mapped to `@Path("{u
 
 ---
 
-## Task 6 — List all tasks endpoint (`GET /api/download/list`) ☐
+## Task 6 — List all tasks endpoint (`GET /api/download/list`) ☑
 
 **What to implement:**
 
