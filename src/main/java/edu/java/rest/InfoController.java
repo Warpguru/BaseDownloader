@@ -31,9 +31,9 @@ import org.slf4j.LoggerFactory;
 @Stateless
 public class InfoController {
 
-	private static Logger logger = LoggerFactory.getLogger(InfoController.class);
+    private static Logger logger = LoggerFactory.getLogger(InfoController.class);
 
-	//@formatter:off
+    //@formatter:off
 	@Operation(
 		summary = "Test WebService", 
 		description = "Show that runtime environment is working.")
@@ -48,16 +48,16 @@ public class InfoController {
 		                schema = @Schema(implementation = String.class))
 		            })})
 	//@formatter:on
-	@GET
-	@Counted(name = "STS_Counted_InfoController_Info", displayName = "InfoController", description = "Info API counter.", absolute = true, unit = MetricUnits.NONE)
-	public Response info(
-			@Parameter(description = "UriInfo context injected", schema = @Schema(implementation = UriInfo.class)) @Context UriInfo uriInfo) {
-		logger.info("GET {}", uriInfo.getRequestUri());
-	//@formatter:off
-	return Response.ok("OK")
+    @GET
+    @Counted(name = "STS_Counted_InfoController_Info", displayName = "InfoController", description = "Info API counter.", absolute = true, unit = MetricUnits.NONE)
+    public Response info(
+            @Parameter(description = "UriInfo context injected", schema = @Schema(implementation = UriInfo.class)) @Context UriInfo uriInfo) {
+        logger.info("GET {}", uriInfo.getRequestUri());
+        //@formatter:off
+		return Response.ok("OK")
 //	.header(ApiConstants.HEADER_X_HOSTNAME, "AppUtil.getInstance().getHostName()")
-	.build();
+		               .build();
 	//@formatter:on
-	}
+    }
 
 }
