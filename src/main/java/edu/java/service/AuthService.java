@@ -89,7 +89,7 @@ public class AuthService {
 			return Response
 				.status(Status.UNAUTHORIZED)
 				.entity(JsonbUtil.getInstance().toJson(Status.UNAUTHORIZED.getStatusCode() + " " + Status.UNAUTHORIZED.getReasonPhrase()))
-				.header("X-BD-Message", validationMessage)
+				.header(ApiConstants.HEADER_X_BD_MESSAGE, validationMessage)
 				.build();
 			//@formatter:on
 		}

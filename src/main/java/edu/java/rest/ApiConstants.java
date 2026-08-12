@@ -20,6 +20,15 @@ public class ApiConstants {
     /** Context root for {@link DownloadController}. */
     public final static String RESOURCE_API_BASE = "base";
 
+    /** Context root for {@link DownloadAsyncController}. */
+    public final static String RESOURCE_API_DOWNLOAD = "download";
+
+    /** Response header carrying the UUID of a newly submitted download task. */
+    public final static String HEADER_X_BD_UUID = "X-BD-UUID";
+
+    /** Response header carrying a human-readable message on authentication failure. */
+    public final static String HEADER_X_BD_MESSAGE = "X-BD-Message";
+
     /**
      * Number of original binary bytes accumulated before a chunk boundary is created during an asynchronous chunked download.
      * <p>

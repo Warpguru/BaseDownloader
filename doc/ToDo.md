@@ -165,7 +165,7 @@ Create `edu.java.service.ChunkedDownloadService` as a `@Stateless` EJB:
 
 ---
 
-## Task 3 — Submit form endpoint (`GET /api/download`) and submit action (`POST /api/download`) ☐
+## Task 3 — Submit form endpoint (`GET /api/download`) and submit action (`POST /api/download`) ☑
 
 **What to implement:**
 
