@@ -39,7 +39,7 @@ public class ApiConstants {
      * </p>
      */
     // Smaller chunks during testing
-    public final static int CHUNK_SIZE_BYTES = 1_024;
+    public final static int CHUNK_SIZE_BYTES = 1 << 16;
     // public final static int CHUNK_SIZE_BYTES = 1_048_576;
 
 }

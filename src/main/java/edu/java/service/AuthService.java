@@ -119,24 +119,26 @@ public class AuthService {
 		} else {
 			// Split the authentication string into parts using whitespace as the delimiter
 			String[] authStringParts = authString.split("\\s+");
-			Integer authTokenIndex = null;
-			if (authStringParts.length == 1) {
-				authTokenIndex = 0;
-			} else if (authStringParts.length == 2) {
-				if (("Basic".equalsIgnoreCase(authStringParts[0])) || ("Bearer".equalsIgnoreCase(authStringParts[0]))) {
-					authTokenIndex = 2;
-				}
-			}
-			if (authTokenIndex != null) {
-				try {
-					// Basic or Bearer authentication provided
-					String decodedAuth = new String(Base64.getDecoder().decode(authStringParts[1]));
-					if (decodedAuth.equals(ApiConstants.APPLICATON + ":" + apiKeyAndPassword)) {
-						auth = true;
-					}
-				} catch (IllegalArgumentException e) {
-					// Base64 decoding failed — treat as unauthenticated
-				}
+			if (authStringParts.length ==2) {
+	            Integer authTokenIndex = null;
+	            if (authStringParts.length == 1) {
+	                authTokenIndex = 0;
+	            } else if (authStringParts.length == 2) {
+	                if (("Basic".equalsIgnoreCase(authStringParts[0])) || ("Bearer".equalsIgnoreCase(authStringParts[0]))) {
+	                    authTokenIndex = 1;
+	                }
+	            }
+	            if (authTokenIndex != null) {
+	                try {
+	                    // Basic or Bearer authentication provided
+	                    String decodedAuth = new String(Base64.getDecoder().decode(authStringParts[authTokenIndex]));
+	                    if (decodedAuth.equals(ApiConstants.APPLICATON + ":" + apiKeyAndPassword)) {
+	                        auth = true;
+	                    }
+	                } catch (IllegalArgumentException e) {
+	                    // Base64 decoding failed — treat as unauthenticated
+	                }
+	            }
 			}
 		}
 		return auth;

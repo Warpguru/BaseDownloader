@@ -18,7 +18,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import org.eclipse.microprofile.openapi.annotations.Operation;
-import org.eclipse.microprofile.openapi.annotations.headers.Header;
+import org.eclipse.microprofile.openapi.annotations.enums.ParameterIn;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
@@ -113,9 +113,7 @@ public class DownloadAsyncController {
 	@APIResponses(value = {
 		@APIResponse(
 			responseCode = "202",
-			description = "Download task accepted and started. Response header " + ApiConstants.HEADER_X_BD_UUID + " contains the task UUID.",
-			headers = @Header(name = ApiConstants.HEADER_X_BD_UUID, description = "UUID of the newly created download task",
-					schema = @Schema(implementation = String.class)),
+			description = "Download task accepted and started. Response header X-BD-UUID contains the task UUID.",
 			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class))),
 		@APIResponse(
 			responseCode = "400",
@@ -138,13 +136,17 @@ public class DownloadAsyncController {
 	@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
 	@Produces(MediaType.TEXT_HTML)
 	public Response submitDownload(
-			@Parameter(description = "Optional Basic or Bearer Authorization header for programmatic callers",
-					required = false, hidden = true)
+			@Parameter(name = "Authorization", description = "Optional Basic or Bearer Authorization header for programmatic callers",
+					in = ParameterIn.HEADER, required = false, hidden = true,
+					schema = @Schema(implementation = String.class))
 			@HeaderParam("Authorization") final String authString,
-			@Parameter(description = "API key (alternative to Authorization header)", required = false)
+			@Parameter(name = "apikey", description = "API key (alternative to Authorization header)",
+					in = ParameterIn.QUERY, required = false,
+					schema = @Schema(implementation = String.class))
 			@FormParam("apikey") final String apikey,
-			@Parameter(description = "The http://, https://, or ftp:// URL of the resource to download",
-					required = true)
+			@Parameter(name = "url", description = "The http://, https://, or ftp:// URL of the resource to download",
+					in = ParameterIn.QUERY, required = true,
+					schema = @Schema(implementation = String.class))
 			@FormParam("url") final String url) {
 
 		// Validate that a URL was supplied
@@ -154,8 +156,8 @@ public class DownloadAsyncController {
 					.build();
 		}
 
-		// Enforce authentication
-		final Response authResponse = authService.enforceAuth(authString, apikey);
+		// Enforce authentication (basic and bearer are equivalent)
+		final Response authResponse = authService.enforceAuth(authString, "Bearer " + apikey);
 		if (authResponse != null) {
 			return authResponse;
 		}

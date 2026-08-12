@@ -52,7 +52,7 @@ import edu.java.rest.ApiConstants;
 public class ChunkedDownloadService {
 
     /** Size of the stream read buffer in bytes. */
-    private static final int BUFFER_LENGTH_STREAM = 1024;
+    private static final int BUFFER_LENGTH_STREAM = 1 << 16;
 
     @Inject
     private DownloadTaskRegistry registry;
@@ -71,7 +71,8 @@ public class ChunkedDownloadService {
      * written to disk.
      * </p>
      *
-     * @param downloadTask the registered {@link DownloadTask} to execute; must already be present in the {@link DownloadTaskRegistry}
+     * @param downloadTask the registered {@link DownloadTask} to execute; must already be present in the
+     *                     {@link DownloadTaskRegistry}
      */
     @Asynchronous
     public void startDownload(final DownloadTask downloadTask) {
@@ -83,9 +84,9 @@ public class ChunkedDownloadService {
             // It grows dynamically as bytes are appended from the stream buffer.
             byte[] chunkBuffer = new byte[0];
 
-            // Buffer clipboardBuffer carries 0-2 remainder bytes between 1 KB read iterations so that every Base64-encoded 
-            // segment (except the very last) is a multiple of 3 bytes and therefore produces no interior '=' padding 
-            // characters. 
+            // Buffer clipboardBuffer carries 0-2 remainder bytes between 1 KB read iterations so that every Base64-encoded
+            // segment (except the very last) is a multiple of 3 bytes and therefore produces no interior '=' padding
+            // characters.
             // Changes dynamically to contain the part of chunkBuffer not yet encoded.
             byte[] clipboardBuffer = new byte[0];
 
@@ -126,7 +127,8 @@ public class ChunkedDownloadService {
                         }
 
                         downloadTask.add(Base64.getEncoder().encodeToString(encodeBuffer));
-                        System.out.println("ChunkedDownloadService: emitted chunk " + downloadTask.getNumberOfChunks());
+                        System.out.println("ChunkedDownloadService: emitted chunk " + downloadTask.getNumberOfChunks() + " of "
+                                + encodeBuffer.length + " bytes");
 
                         // Slide chunkBuffer forward past the bytes just consumed.
                         int consumed = ApiConstants.CHUNK_SIZE_BYTES;
@@ -143,7 +145,8 @@ public class ChunkedDownloadService {
             System.arraycopy(chunkBuffer, 0, finalRaw, clipboardBuffer.length, chunkBuffer.length);
             // The final encode may have padding — this is the only '=' that should appear.
             downloadTask.add(Base64.getEncoder().encodeToString(finalRaw));
-            System.out.println("ChunkedDownloadService: emitted final chunk " + downloadTask.getNumberOfChunks());
+            System.out.println("ChunkedDownloadService: emitted final chunk " + downloadTask.getNumberOfChunks() + " of "
+                    + finalRaw.length + " bytes");
 
             downloadTask.setStatus(DownloadTask.Status.DONE);
         } catch (Exception e) {
