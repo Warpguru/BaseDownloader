@@ -131,7 +131,7 @@ boundary is created; the resulting Base64 text will be approximately 37 % larger
 
 ---
 
-## Task 2 — Background async chunked download service ☐
+## Task 2 — Background async chunked download service ☑
 
 **What to implement:**
 

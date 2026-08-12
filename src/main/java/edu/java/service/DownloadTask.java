@@ -49,41 +49,41 @@ public class DownloadTask {
     }
 
     /** Unique identifier of download assigned at construction. */
-    public String uuid;
+    private String uuid;
 
     /** The URL string submitted by the user ({@code http://}, {@code https://}, or {@code ftp://}). */
-    public String requestedUrl;
+    private String requestedUrl;
 
     /** Filename extracted from the last path segment of {@link #requestedUrl} (e.g. {@code data.zip}). */
-    public String originalFileName;
+    private String originalFileName;
 
     /**
      * Ordered list of Base64-encoded text chunks produced by the background download. Each entry except the last represents
      * exactly {@code ApiConstants.CHUNK_SIZE_BYTES} of original binary data; the last entry may be smaller.
      */
-    public List<String> chunks;
+    private List<String> chunks;
 
     /**
      * Total number of chunks once the download is complete, or {@code -1} while the download is still running. Set to
      * {@code chunks.size()} when {@link #status} transitions to {@link Status#DONE} or {@link Status#FAILED}.
      */
-    public int totalChunks;
+    private int totalChunks;
 
     /** Current lifecycle {@link Status} of this task. */
-    public Status status;
+    private Status status;
 
     /**
      * Human-readable error message, or {@code null} unless {@link #status} is {@link Status#FAILED}.
      */
-    public String errorMessage;
+    private String errorMessage;
 
     /** Timestamp at which this task was created. */
-    public Instant submittedAt;
+    private Instant submittedAt;
 
     /**
      * Timestamp after which this task may be evicted by the cleanup scheduler. Set to one hour after {@link #submittedAt}.
      */
-    public Instant expiresAt;
+    private Instant expiresAt;
 
     /**
      * Constructs a new {@code DownloadTask} in {@link Status#PENDING} state.
@@ -101,6 +101,111 @@ public class DownloadTask {
         this.errorMessage = null;
         this.submittedAt = Instant.now();
         this.expiresAt = this.submittedAt.plus(1, ChronoUnit.HOURS);
+    }
+
+    /**
+     * Add a non-null {@code chunk} to {@link DownloadTask#chunks}.
+     * 
+     * @param chunk to add
+     * @return {@link DownloadTask}
+     */
+    public DownloadTask add(final String chunk) {
+        if (chunk != null) {
+            chunks.add(chunk);
+        }
+        return this;
+    }
+
+    /**
+     * Retrieve the number of {@link DownloadTask#chunks}.
+     * 
+     * @return numberOfChunks
+     */
+    public int getNumberOfChunks() {
+        return chunks.size();
+    }
+
+    /**
+     * Set the number of chunks processed to {@link DownloadTask#totalChunks}.
+     * 
+     * @param totalChunks to set
+     * @return {@link DownloadTask}
+     */
+    public DownloadTask setNumberOfTotalChunks(final int totalChunks) {
+        this.totalChunks = totalChunks;
+        return this;
+    }
+
+    /**
+     * Retrieve the {@link DownloadTask#chunks} of download request.
+     * 
+     * @return uuid
+     */
+    public String getUuid() {
+        return uuid;
+    }
+
+    /**
+     * Get {@link DownloadTask#requestedUrl} of download request.
+     * 
+     * @return requestedUrl
+     */
+    public String getRequestedUrl() {
+        return requestedUrl;
+    }
+
+    /**
+     * Set {@link DownloadTask#status} for download request.
+     * 
+     * @param status
+     */
+    public void setStatus(final Status status) {
+        this.status = status;
+    }
+
+    /**
+     * Get {@link DownloadTask#status} of download request.
+     * 
+     * @return status
+     */
+    public Status getStatus() {
+        return status;
+    }
+
+    /**
+     * Set error message when download request failed.
+     * 
+     * @param errorMessage
+     */
+    public void setErrorMessage(final String errorMessage) {
+        this.errorMessage = errorMessage;
+    }
+
+    /**
+     * Retrieve error message when download request failed.
+     * 
+     * @return errorMessage
+     */
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    /**
+     * Retrieve when download request was submitted.
+     * 
+     * @return submittedAt
+     */
+    public Instant getSubmittedAt() {
+        return submittedAt;
+    }
+
+    /**
+     * Retrieve when download request expires.
+     * 
+     * @return expiresAt
+     */
+    public Instant getExpiresAt() {
+        return expiresAt;
     }
 
 }

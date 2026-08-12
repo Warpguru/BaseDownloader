@@ -29,7 +29,7 @@ public class DownloadTaskRegistry {
      * @param task the task to register; must not be {@code null}
      */
     public void register(final DownloadTask task) {
-        downloadTasks.put(task.uuid, task);
+        downloadTasks.put(task.getUuid(), task);
     }
 
     /**
@@ -70,7 +70,7 @@ public class DownloadTaskRegistry {
      */
     public void removeExpired() {
         final Instant now = Instant.now();
-        downloadTasks.entrySet().removeIf(entry -> entry.getValue().expiresAt.isBefore(now));
+        downloadTasks.entrySet().removeIf(entry -> entry.getValue().getExpiresAt().isBefore(now));
     }
 
 }
