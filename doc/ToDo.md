@@ -243,7 +243,7 @@ On `DownloadAsyncController`, add a `GET` method `getDownloadStatus` mapped to `
 
 ---
 
-## Task 5 — Single-chunk download endpoint (`GET /api/download/{uuid}/{index}`) ☐
+## Task 5 — Single-chunk download endpoint (`GET /api/download/{uuid}/{index}`) ☑
 
 **What to implement:**
 

@@ -38,7 +38,7 @@ public class DownloadTaskRegistry {
      * @param uuid unique identifier of the task
      * @return the {@link DownloadTask}, or {@code null}
      */
-    public DownloadTask get(final String uuid) {
+    public DownloadTask retrieve(final String uuid) {
         return downloadTasks.get(uuid);
     }
 
@@ -47,7 +47,7 @@ public class DownloadTaskRegistry {
      *
      * @return all registered downloadTasks
      */
-    public Collection<DownloadTask> getAll() {
+    public Collection<DownloadTask> retrieveAll() {
         return downloadTasks.values();
     }
 

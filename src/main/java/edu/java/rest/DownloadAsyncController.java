@@ -1,8 +1,10 @@
 package edu.java.rest;
 
 import java.io.File;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLEncoder;
 
 import javax.ejb.Stateless;
 import javax.inject.Inject;
@@ -298,7 +300,7 @@ public class DownloadAsyncController {
 		}
 
 		// Look up task
-		final DownloadTask task = registry.get(uuid);
+		final DownloadTask task = registry.retrieve(uuid);
 		if (task == null) {
 			return Response.status(Status.NOT_FOUND)
 					.entity("<html><body><p>404 Not Found &mdash; no download task with UUID: " + uuid + "</p></body></html>")
@@ -343,10 +345,26 @@ public class DownloadAsyncController {
 			  .append(" chunk(s) produced so far. Reload this page to check progress.</p>");
 
 		} else if (status == DownloadTask.Status.DONE) {
+			// Append ?apikey=... to every chunk link so the browser can follow them without
+			// re-entering credentials.  Prefer the apikey query param as-is; fall back to the
+			// Authorization header value (which authenticate() also accepts in full "Bearer …"
+			// or "Basic …" form).  The header value must be URL-encoded because it contains
+			// spaces and '=' padding characters.
+			String credSuffix = "";
+			if (apikey != null) {
+				credSuffix = "?apikey=" + apikey;
+			} else if (authString != null) {
+				try {
+					credSuffix = "?apikey=" + URLEncoder.encode(authString, "UTF-8");
+				} catch (UnsupportedEncodingException e) {
+					// UTF-8 is always supported; never reached
+				}
+			}
+
 			sb.append("<h3>Chunks</h3>");
 			sb.append("<ol>");
 			for (int i = 1; i <= chunkCount; i++) {
-				final String chunkLink = "/base-downloader/api/download/" + uuid + "/" + i;
+				final String chunkLink = "/base-downloader/api/download/" + uuid + "/" + i + credSuffix;
 				sb.append("<li><a href=\"").append(chunkLink).append("\">")
 				  .append(name).append(".").append(i).append(".txt")
 				  .append("</a></li>");
@@ -385,6 +403,103 @@ public class DownloadAsyncController {
 
 		sb.append("</body></html>");
 		return Response.ok(sb.toString()).build();
+	}
+
+	/**
+	 * Returns the Base64-encoded content of one chunk as a downloadable {@code text/plain} file.
+	 * <p>
+	 * The {@code index} parameter is 1-based (matching the link numbers shown on the status page).
+	 * It is converted to a 0-based list index internally.  A 404 is returned if the index is out
+	 * of range or the chunk has not yet been produced by the background download.
+	 * </p>
+	 * <p>
+	 * The response includes a {@code Content-Disposition: attachment} header so the browser saves
+	 * the chunk as {@code {originalFileName}.{index}.txt} rather than displaying it inline.
+	 * </p>
+	 *
+	 * @param uuid       UUID of the download task
+	 * @param index      1-based chunk index
+	 * @param authString optional {@code Authorization} header value (Basic or Bearer)
+	 * @param apikey     optional API key query parameter (alternative to the header)
+	 * @return 200 OK with Base64 text, 401 if not authenticated, 404 if task or chunk not found
+	 */
+	//@formatter:off
+	@Operation(
+		summary = "Download chunk",
+		description = "Returns the Base64-encoded content of a single chunk as a downloadable text/plain file. "
+				+ "The index is 1-based, matching the link numbers on the status page.")
+	@APIResponses(value = {
+		@APIResponse(
+			responseCode = "200",
+			description = "Chunk content returned as a downloadable text/plain attachment.",
+			content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(implementation = String.class))),
+		@APIResponse(
+			responseCode = "401",
+			description = "Unauthorized &mdash; no valid Basic or Bearer authentication was provided.",
+			content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(implementation = String.class))),
+		@APIResponse(
+			responseCode = "404",
+			description = "Task not found, chunk index out of range, or chunk not yet available.",
+			content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(implementation = String.class)))
+	})
+	@SecurityRequirements(value = {
+		@SecurityRequirement(name = "BasicAuthentication"),
+		@SecurityRequirement(name = "BearerAuthentication")})
+	//@formatter:on
+	@GET
+	@Path("{uuid}/{index}")
+	@Produces(MediaType.TEXT_PLAIN)
+	public Response getChunk(
+			@Parameter(name = "uuid", description = "UUID of the download task",
+					in = ParameterIn.PATH, required = true,
+					schema = @Schema(implementation = String.class))
+			@PathParam("uuid") final String uuid,
+			@Parameter(name = "index", description = "1-based chunk index",
+					in = ParameterIn.PATH, required = true,
+					schema = @Schema(implementation = Integer.class))
+			@PathParam("index") final int index,
+			@Parameter(name = "Authorization", description = "Optional Basic or Bearer Authorization header",
+					in = ParameterIn.HEADER, required = false, hidden = true,
+					schema = @Schema(implementation = String.class))
+			@HeaderParam("Authorization") final String authString,
+			@Parameter(name = "apikey", description = "API key (alternative to Authorization header)",
+					in = ParameterIn.QUERY, required = false,
+					schema = @Schema(implementation = String.class))
+			@QueryParam("apikey") final String apikey) {
+
+        // Enforce authentication (basic and bearer are equivalent)
+        final Response authResponse = authService.enforceAuth(authString, "Bearer " + apikey);
+		if (authResponse != null) {
+			return authResponse;
+		}
+
+		// Validate index range (1-based public API)
+		if (index < 1) {
+			return Response.status(Status.NOT_FOUND)
+					.entity("404 Not Found &mdash; chunk index must be >= 1.")
+					.build();
+		}
+
+		// Look up task
+		final DownloadTask task = registry.retrieve(uuid);
+		if (task == null) {
+			return Response.status(Status.NOT_FOUND)
+					.entity("404 Not Found &mdash; no download task with UUID: " + uuid)
+					.build();
+		}
+
+		// Convert to 0-based and fetch chunk (returns null if not yet available or out of range)
+		final String chunk = task.getChunk(index - 1);
+		if (chunk == null) {
+			return Response.status(Status.NOT_FOUND)
+					.entity("404 Not Found &mdash; chunk " + index + " is not yet available for UUID: " + uuid)
+					.build();
+		}
+
+		final String filename = task.getOriginalFileName() + "." + index + ".txt";
+		return Response.ok(chunk)
+				.header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+				.build();
 	}
 
 }

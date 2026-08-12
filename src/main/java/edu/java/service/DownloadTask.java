@@ -164,6 +164,20 @@ public class DownloadTask {
     }
 
     /**
+     * Returns the Base64-encoded chunk at the given 0-based index, or {@code null} if the index is out of range or the chunk
+     * has not yet been produced by the background download.
+     *
+     * @param index 0-based chunk index
+     * @return the Base64 chunk string, or {@code null} if not available
+     */
+    public String getChunk(final int index) {
+        if (index < 0 || index >= chunks.size()) {
+            return null;
+        }
+        return chunks.get(index);
+    }
+
+    /**
      * Retrieve the total number of chunks once complete, or {@code -1} while still running.
      *
      * @return totalChunks
@@ -171,7 +185,7 @@ public class DownloadTask {
     public int getTotalChunks() {
         return totalChunks;
     }
-    
+
     /**
      * Set {@link DownloadTask#status} for download request.
      * 
