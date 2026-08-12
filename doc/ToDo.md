@@ -24,7 +24,7 @@ annotations (`@Tag`, `@Operation`, `@APIResponses`, `@Parameter`, `@SecurityRequ
 
 ---
 
-## Task 0 — Refactor existing business logic out of `edu.java.rest` ☐
+## Task 0 — Refactor existing business logic out of `edu.java.rest` ☑
 
 **What to implement:**
 
@@ -91,7 +91,7 @@ After this task `edu.java.rest` contains only: `Application`, `ApiConstants`, `D
 
 ---
 
-## Task 1 — `DownloadTask` domain model and `DownloadTaskRegistry` ☐
+## Task 1 — `DownloadTask` domain model and `DownloadTaskRegistry` ☑
 
 **What to implement:**
 
