@@ -1,6 +1,6 @@
 package edu.java.rest;
 
-import javax.ejb.Singleton;
+import javax.ejb.Stateless;
 import javax.resource.spi.AuthenticationMechanism;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  */
 @Tag(name = "Login WebServices", description = "Application login WebServices.")
 @Path(ApiConstants.RESOURCE_API_LOGIN)
-@Singleton
+@Stateless
 public class LoginController {
 
 	private static Logger logger = LoggerFactory.getLogger(InfoController.class);

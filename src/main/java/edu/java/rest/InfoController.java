@@ -1,6 +1,6 @@
 package edu.java.rest;
 
-import javax.ejb.Singleton;
+import javax.ejb.Stateless;
 import javax.resource.spi.AuthenticationMechanism;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
  */
 @Tag(name = "Info WebServices", description = "Maven build info WebServices.")
 @Path(ApiConstants.RESOURCE_API_INFO)
-@Singleton
+@Stateless
 public class InfoController {
 
 	private static Logger logger = LoggerFactory.getLogger(InfoController.class);
