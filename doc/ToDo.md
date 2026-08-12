@@ -279,7 +279,7 @@ a JAX-RS routing conflict with the `GET /api/download` form endpoint (Task 3).
 
 ---
 
-## Task 7 — Scheduled cleanup of expired tasks ☐
+## Task 7 — Scheduled cleanup of expired tasks ☑
 
 **What to implement:**
 
