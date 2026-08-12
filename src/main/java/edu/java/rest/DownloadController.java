@@ -186,7 +186,7 @@ public class DownloadController {
 			return Response
 				.status(Status.UNAUTHORIZED)
 				.entity(JsonbUtil.getInstance().toJson(Status.UNAUTHORIZED.getStatusCode() + " " + Status.UNAUTHORIZED.getReasonPhrase()))
-				.header("X-SBS-Message", validationMessage)
+				.header("X-BD-Message", validationMessage)
 				.build();
 			//@formatter:on
 		}
