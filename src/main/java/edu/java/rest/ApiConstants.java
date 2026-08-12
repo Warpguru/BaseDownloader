@@ -11,6 +11,9 @@ public class ApiConstants {
 	/** Context root for {@link Application}. */
 	public final static String RESOURCE_API_APPLICATON = "api";
 	
+	/** Context root for {@link LoginController}. */
+	public final static String RESOURCE_API_LOGIN = "login";
+	
 	/** Context root for {@link InfoController}. */
 	public final static String RESOURCE_API_INFO = "info";
 	

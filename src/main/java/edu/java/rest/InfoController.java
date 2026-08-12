@@ -18,6 +18,8 @@ import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * SAP for build info.
@@ -28,6 +30,8 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @Path(ApiConstants.RESOURCE_API_INFO)
 @Singleton
 public class InfoController {
+
+	private static Logger logger = LoggerFactory.getLogger(InfoController.class);
 
 	//@formatter:off
 	@Operation(
@@ -48,7 +52,7 @@ public class InfoController {
 	@Counted(name = "STS_Counted_InfoController_Info", displayName = "InfoController", description = "Info API counter.", absolute = true, unit = MetricUnits.NONE)
 	public Response info(
 			@Parameter(description = "UriInfo context injected", schema = @Schema(implementation = UriInfo.class)) @Context UriInfo uriInfo) {
-//		log.info("GET {}", uriInfo.getRequestUri());
+		logger.info("GET {}", uriInfo.getRequestUri());
 	//@formatter:off
 	return Response.ok("OK")
 //	.header(ApiConstants.HEADER_X_HOSTNAME, "AppUtil.getInstance().getHostName()")

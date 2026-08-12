@@ -206,6 +206,7 @@ public class DownloadController {
 		if (authString == null || authString.contentEquals("")) {
 //			log.debug("No authentication data supplied!");
 		} else {
+			// Split the authentication string into parts using whitespace as the delimiter
 			String[] authStringParts = authString.split("\\s+");
 			Integer authTokenIndex = null;
 			if (authStringParts.length == 1) {
