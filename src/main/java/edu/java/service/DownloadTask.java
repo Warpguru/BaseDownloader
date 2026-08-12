@@ -155,6 +155,24 @@ public class DownloadTask {
     }
 
     /**
+     * Retrieve the original filename derived from the URL path.
+     *
+     * @return originalFileName
+     */
+    public String getOriginalFileName() {
+        return originalFileName;
+    }
+
+    /**
+     * Retrieve the total number of chunks once complete, or {@code -1} while still running.
+     *
+     * @return totalChunks
+     */
+    public int getTotalChunks() {
+        return totalChunks;
+    }
+    
+    /**
      * Set {@link DownloadTask#status} for download request.
      * 
      * @param status
@@ -201,7 +219,7 @@ public class DownloadTask {
 
     /**
      * Retrieve when download request expires.
-     * 
+     *
      * @return expiresAt
      */
     public Instant getExpiresAt() {

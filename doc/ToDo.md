@@ -210,7 +210,7 @@ those limits entirely. Therefore the submit flow uses a two-step GET → POST pa
 
 ---
 
-## Task 4 — Status and chunk-list endpoint (`GET /api/download/{uuid}`) ☐
+## Task 4 — Status and chunk-list endpoint (`GET /api/download/{uuid}`) ☑
 
 **What to implement:**
 

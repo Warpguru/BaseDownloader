@@ -61,6 +61,10 @@ public class AuthService {
 		if (authString != null) {
 			response = authenticate(authString);
 		}
+		// If neither credential was supplied at all, treat as unauthenticated
+		if (response == null && apikey == null && authString == null) {
+			response = authenticate("");
+		}
 		if (response != null) {
 			// Waste unauthenticated tries some time to avoid bulk attacks
 			try {

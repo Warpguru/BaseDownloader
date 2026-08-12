@@ -12,7 +12,9 @@ import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -36,19 +38,19 @@ import edu.java.service.DownloadTaskRegistry;
 /**
  * JAX-RS controller for the asynchronous chunked download workflow.
  * <p>
- * Mapped to {@code /api/download}, this controller provides two entry points:
+ * Mapped to {@code /api/download}, this controller provides:
  * </p>
  * <ul>
- *   <li>{@link #showSubmitForm} — {@code GET /api/download} — returns an HTML form so a browser
- *       user can paste a URL and submit it without needing a separate client.</li>
- *   <li>{@link #submitDownload} — {@code POST /api/download} — validates the submitted URL,
- *       registers a new {@link DownloadTask}, fires the asynchronous download via
- *       {@link ChunkedDownloadService}, and returns HTTP 202 with the task UUID.</li>
+ *   <li>{@link #showSubmitForm} — {@code GET /api/download} — HTML form for URL submission.</li>
+ *   <li>{@link #submitDownload} — {@code POST /api/download} — validates, registers, and fires
+ *       the async download; returns HTTP 202 with the task UUID.</li>
+ *   <li>{@link #getDownloadStatus} — {@code GET /api/download/{uuid}} — status page with chunk
+ *       links and reassembly instructions once the download is complete.</li>
  * </ul>
  * <p>
  * The GET → POST split exists because URLs can exceed typical query-string length limits
- * (2 000–8 192 characters depending on browser and server).  Submitting via a {@code <textarea>}
- * in a POST body bypasses those limits entirely.
+ * (2 000–8 192 characters).  Submitting via a {@code <textarea>} in a POST body bypasses those
+ * limits entirely.
  * </p>
  * <p>
  * {@code @Stateless} is used (not {@code @Singleton}) so the EJB container can serve concurrent
@@ -70,6 +72,16 @@ public class DownloadAsyncController {
 	@Inject
 	private ChunkedDownloadService chunkedDownloadService;
 
+	/**
+	 * Returns an HTML form that lets a browser user submit a download URL without a separate
+	 * HTTP client.
+	 * <p>
+	 * No authentication is required to view the form; credentials are validated at submit time
+	 * by {@link #submitDownload}.
+	 * </p>
+	 *
+	 * @return 200 OK with a {@code text/html} submit form
+	 */
 	//@formatter:off
 	@Operation(
 		summary = "Download submit form",
@@ -104,6 +116,19 @@ public class DownloadAsyncController {
 		return Response.ok(html).build();
 	}
 
+	/**
+	 * Validates the submitted URL, registers a new {@link DownloadTask}, fires the asynchronous
+	 * download via {@link ChunkedDownloadService}, and returns HTTP 202 Accepted.
+	 * <p>
+	 * The download runs in a background EJB-managed thread; the response is returned immediately
+	 * with the task UUID so the caller can poll {@link #getDownloadStatus} for progress.
+	 * </p>
+	 *
+	 * @param authString optional {@code Authorization} header value (Basic or Bearer)
+	 * @param apikey     optional API key query/form parameter (alternative to the header)
+	 * @param url        the {@code http://}, {@code https://}, or {@code ftp://} URL to download
+	 * @return 202 Accepted with UUID and status link, 400 for invalid input, 401 if not authenticated
+	 */
 	//@formatter:off
 	@Operation(
 		summary = "Submit download",
@@ -189,7 +214,7 @@ public class DownloadAsyncController {
 
 		final String uuid = task.getUuid();
 		final String statusLink = "/base-downloader/api/download/" + uuid;
-	    //@formatter:off
+		//@formatter:off
 		final String html = "<!DOCTYPE html>"
 				+ "<html><head><title>Download submitted</title></head>"
 				+ "<body>"
@@ -205,7 +230,161 @@ public class DownloadAsyncController {
 		return Response.accepted(html)
 				.header(ApiConstants.HEADER_X_BD_UUID, uuid)
 				.build();
-		  //@formatter:on
+		//@formatter:on
+	}
+
+	/**
+	 * Returns an HTML status page for the download task identified by {@code uuid}.
+	 * <p>
+	 * The page content varies by {@link DownloadTask.Status}:
+	 * </p>
+	 * <ul>
+	 *   <li>{@code PENDING} / {@code IN_PROGRESS} — progress notice with current chunk count.</li>
+	 *   <li>{@code DONE} — numbered list of chunk links, an "Open all chunk tabs" button, and
+	 *       reassembly instructions for Windows ({@code certutil}) and Linux/macOS
+	 *       ({@code base64 -d}).</li>
+	 *   <li>{@code FAILED} — the error message from {@link DownloadTask#getErrorMessage()}.</li>
+	 * </ul>
+	 *
+	 * @param uuid       UUID of the download task
+	 * @param authString optional {@code Authorization} header value (Basic or Bearer)
+	 * @param apikey     optional API key query parameter (alternative to the header)
+	 * @return 200 OK with status page, 401 if not authenticated, 404 if UUID not found
+	 */
+	//@formatter:off
+	@Operation(
+		summary = "Download status",
+		description = "Returns an HTML page showing the current status of a download task. "
+				+ "When DONE, lists all chunk download links and provides reassembly instructions for Windows and Linux/macOS.")
+	@APIResponses(value = {
+		@APIResponse(
+			responseCode = "200",
+			description = "Status page returned successfully.",
+			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class))),
+		@APIResponse(
+			responseCode = "401",
+			description = "Unauthorized — no valid Basic or Bearer authentication was provided.",
+			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class))),
+		@APIResponse(
+			responseCode = "404",
+			description = "No task found for the given UUID.",
+			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class)))
+	})
+	@SecurityRequirements(value = {
+		@SecurityRequirement(name = "BasicAuthentication"),
+		@SecurityRequirement(name = "BearerAuthentication")})
+	//@formatter:on
+	@GET
+	@Path("{uuid}")
+	@Produces(MediaType.TEXT_HTML)
+	public Response getDownloadStatus(
+			@Parameter(name = "uuid", description = "UUID of the download task",
+					in = ParameterIn.PATH, required = true,
+					schema = @Schema(implementation = String.class))
+			@PathParam("uuid") final String uuid,
+			@Parameter(name = "Authorization", description = "Optional Basic or Bearer Authorization header",
+					in = ParameterIn.HEADER, required = false, hidden = true,
+					schema = @Schema(implementation = String.class))
+			@HeaderParam("Authorization") final String authString,
+			@Parameter(name = "apikey", description = "API key (alternative to Authorization header)",
+					in = ParameterIn.QUERY, required = false,
+					schema = @Schema(implementation = String.class))
+			@QueryParam("apikey") final String apikey) {
+
+        // Enforce authentication (basic and bearer are equivalent)
+		final Response authResponse = authService.enforceAuth(authString, "Bearer " + apikey);
+		if (authResponse != null) {
+			return authResponse;
+		}
+
+		// Look up task
+		final DownloadTask task = registry.get(uuid);
+		if (task == null) {
+			return Response.status(Status.NOT_FOUND)
+					.entity("<html><body><p>404 Not Found &mdash; no download task with UUID: " + uuid + "</p></body></html>")
+					.build();
+		}
+
+		final String name = task.getOriginalFileName();
+		final DownloadTask.Status status = task.getStatus();
+		final int chunkCount = task.getNumberOfChunks();
+		final StringBuilder sb = new StringBuilder();
+
+		sb.append("<!DOCTYPE html><html><head><title>Download Status &mdash; ").append(uuid).append("</title>");
+
+		// Embed openLinks() JS only when DONE (browsers may block pop-ups)
+		if (status == DownloadTask.Status.DONE) {
+			sb.append("<script>")
+			  .append("function openLinks(){")
+			  .append("var links=document.getElementsByTagName('a');")
+			  .append("for(var i=0;i<links.length;i++){")
+			  .append("window.open(links[i].getAttribute('href'),'_blank');")
+			  .append("window.focus();")
+			  .append("}}")
+			  .append("</script>");
+		}
+
+		sb.append("</head><body>");
+		sb.append("<h2>Download Status</h2>");
+
+		// Request details table
+		sb.append("<table>");
+		sb.append("<tr><td><strong>UUID:</strong></td><td>").append(uuid).append("</td></tr>");
+		sb.append("<tr><td><strong>URL:</strong></td><td>").append(task.getRequestedUrl()).append("</td></tr>");
+		sb.append("<tr><td><strong>File:</strong></td><td>").append(name).append("</td></tr>");
+		sb.append("<tr><td><strong>Submitted:</strong></td><td>").append(task.getSubmittedAt()).append("</td></tr>");
+		sb.append("<tr><td><strong>Expires:</strong></td><td>").append(task.getExpiresAt()).append("</td></tr>");
+		sb.append("<tr><td><strong>Status:</strong></td><td>").append(status).append("</td></tr>");
+		sb.append("</table>");
+
+		// Status-specific section
+		if (status == DownloadTask.Status.PENDING || status == DownloadTask.Status.IN_PROGRESS) {
+			sb.append("<p>&#9203; Download is running &mdash; ").append(chunkCount)
+			  .append(" chunk(s) produced so far. Reload this page to check progress.</p>");
+
+		} else if (status == DownloadTask.Status.DONE) {
+			sb.append("<h3>Chunks</h3>");
+			sb.append("<ol>");
+			for (int i = 1; i <= chunkCount; i++) {
+				final String chunkLink = "/base-downloader/api/download/" + uuid + "/" + i;
+				sb.append("<li><a href=\"").append(chunkLink).append("\">")
+				  .append(name).append(".").append(i).append(".txt")
+				  .append("</a></li>");
+			}
+			sb.append("</ol>");
+
+			// Open all chunks button — browsers may block the resulting pop-ups
+			sb.append("<p><button onclick=\"openLinks()\">Open all chunk tabs</button>")
+			  .append(" <small>(browsers may block pop-ups)</small></p>");
+
+			// Reassembly instructions — Windows
+			sb.append("<h3>Reassembly &mdash; Windows</h3>");
+			final StringBuilder copyCmd = new StringBuilder("copy /b ");
+			for (int i = 1; i <= chunkCount; i++) {
+				if (i > 1) copyCmd.append(" + ");
+				copyCmd.append(name).append(".").append(i).append(".txt");
+			}
+			copyCmd.append(" ").append(name).append(".txt");
+			sb.append("<pre>").append(copyCmd).append("</pre>");
+			sb.append("<pre>certutil -decode ").append(name).append(".txt ").append(name).append("</pre>");
+
+			// Reassembly instructions — Linux / macOS
+			sb.append("<h3>Reassembly &mdash; Linux / macOS</h3>");
+			final StringBuilder catCmd = new StringBuilder("cat ");
+			for (int i = 1; i <= chunkCount; i++) {
+				if (i > 1) catCmd.append(" ");
+				catCmd.append(name).append(".").append(i).append(".txt");
+			}
+			catCmd.append(" > ").append(name).append(".txt");
+			sb.append("<pre>").append(catCmd).append("</pre>");
+			sb.append("<pre>base64 -d ").append(name).append(".txt > ").append(name).append("</pre>");
+
+		} else if (status == DownloadTask.Status.FAILED) {
+			sb.append("<p>&#10060; Download failed: ").append(task.getErrorMessage()).append("</p>");
+		}
+
+		sb.append("</body></html>");
+		return Response.ok(sb.toString()).build();
 	}
 
 }
