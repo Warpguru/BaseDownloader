@@ -6,6 +6,17 @@ Package conventions used throughout:
 - `edu.java.rest` — JAX-RS controllers only (no business logic)
 - `edu.java.service` — business logic, domain model, registry, scheduler
 
+EJB annotation conventions used throughout:
+- Controllers (`edu.java.rest`): `@Stateless` — the container maintains a pool of instances so
+  concurrent requests are dispatched to different pool members simultaneously. Controllers hold
+  no mutable instance state, so no locking is required and `@Singleton` (which serialises all
+  method calls under its default write-lock) would be counterproductive.
+- Stateless services (`edu.java.service`): `@Stateless` for the same reason.
+- Scheduler (`edu.java.service.DownloadCleanupScheduler`): **`@Singleton`** — the EJB timer
+  service requires a singleton bean; `@Schedule` is not valid on a `@Stateless` bean.
+- Registry (`edu.java.service.DownloadTaskRegistry`): `@ApplicationScoped` CDI — one shared
+  instance backed by a `ConcurrentHashMap`; thread-safety comes from the map, not a lock.
+
 All new and touched classes must carry meaningful Javadoc on the class itself and on any method
 that expresses business logic, a non-obvious assumption, or a lifecycle constraint. Plain
 setters/getters do not need Javadoc. All REST endpoints must carry full MicroProfile OpenAPI
@@ -20,8 +31,18 @@ annotations (`@Tag`, `@Operation`, `@APIResponses`, `@Parameter`, `@SecurityRequ
 The existing `DownloadController` mixes HTTP concerns with two pieces of reusable business logic
 that new code will also need: authentication validation and stream downloading/Base64-encoding.
 Both must be extracted into the new `edu.java.service` package so controllers stay thin.
+The three existing controllers (`DownloadController`, `InfoController`, `LoginController`) must
+also have their EJB annotation changed from `@Singleton` to `@Stateless` (see EJB annotation
+conventions above).
 
-1. Create `edu.java.service.AuthService` as a `@ApplicationScoped` CDI bean:
+1. **Change `@Singleton` → `@Stateless` on all existing controllers.**
+   Replace `import javax.ejb.Singleton` with `import javax.ejb.Stateless` and the class-level
+   annotation in `DownloadController`, `InfoController`, and `LoginController`.
+   Javadoc on each controller class must note that `@Stateless` is used (not `@Singleton`) so
+   the EJB container can serve concurrent requests from a pool of instances without serialising
+   access via the default write-lock that `@Singleton` would impose.
+
+2. Create `edu.java.service.AuthService` as an `@ApplicationScoped` CDI bean:
    - Move the `authenticate(String authString)` and `isUserAuthenticated(String authString, String apiKeyAndPassword)`
      logic out of `DownloadController` verbatim into `AuthService`.
    - Expose a single public method `Response enforceAuth(String authString, String apikey)` that
@@ -32,30 +53,41 @@ Both must be extracted into the new `edu.java.service` package so controllers st
      deliberate 30-second sleep on auth failure as a brute-force mitigation, and that both Basic
      and Bearer schemes are supported.
 
-2. Create `edu.java.service.StreamDownloadService` as a `@Singleton` EJB:
+3. Create `edu.java.service.StreamDownloadService` as a `@Stateless` EJB:
    - Move the `downloadStream(URL urlOfResource, String fileName)` method from `DownloadController`
      into `StreamDownloadService`, keeping the existing 1 KB read-loop, 3-byte-aligned Base64
-     clipboard logic, and the disk writes (`test.zip`, `test.b64`) intact so the legacy
-     `GET /api/base` endpoint behaviour is preserved exactly.
-   - The method signature and semantics must remain identical; only the home class changes.
+     clipboard logic intact.
+   - **Replace the two hardcoded filename constants** (`FILE_NAME_ZIP = "test.zip"` and
+     `FILE_NAME_BASE64 = "test.b64"`) with filenames derived from the `fileName` parameter that
+     is already passed into `downloadStream()`. The binary output file becomes `{fileName}` and
+     the Base64 output file becomes `{fileName}.b64`. The `fileName` value comes from
+     `new File(urlOfResource.getPath()).getName()` in `DownloadController.base64Download()`,
+     which extracts the last path segment of the URL (e.g. `data.zip` from
+     `https://example.com/files/data.zip`) — the same convention used by `DownloadTask`.
+   - Remove the two `FILE_NAME_ZIP` / `FILE_NAME_BASE64` constants from `DownloadController`
+     entirely; they must not survive the refactor.
    - Javadoc must explain the 3-byte alignment requirement for correct Base64 encoding, the
-     clipboard buffer role (holding remainder bytes between loop iterations), and the fact that
-     the two output files are always overwritten (a known PoC limitation, see Gotcha 4).
+     clipboard buffer role (holding remainder bytes between loop iterations), that the two output
+     files use the URL-derived filename (not a hardcoded name), and that they are always
+     overwritten — the concurrency race on the files is a known PoC limitation documented in
+     Gotcha 4; `@Stateless` does not fix that, and Gotcha 4 is resolved only when the
+     `ChunkedDownloadService` (Task 2) is used instead.
 
-3. Update `DownloadController` to:
+4. Update `DownloadController` to:
+   - Change annotation to `@Stateless` (step 1 above).
    - Inject `AuthService` via `@Inject` and replace its own `authenticate`/`isUserAuthenticated`
      calls with `AuthService.enforceAuth(authString, apikey)`.
    - Inject `StreamDownloadService` via `@Inject` and replace its own `downloadStream` call.
-   - Remove the now-deleted private methods; the controller body should shrink to only HTTP
-     glue code.
+   - Remove the now-deleted private methods and the two filename constants; the controller body
+     should shrink to only HTTP glue code.
    - Ensure all Javadoc on the controller class and `base64Download` method is updated to
      reflect the delegation.
 
-4. Move `JsonbUtil` from `edu.java.rest` to `edu.java.service` (its package should be
-   `edu.java.service`). Update all existing `import` statements that reference it.
+5. Move `JsonbUtil` from `edu.java.rest` to `edu.java.service` (its package declaration should
+   become `edu.java.service`). Update all existing `import` statements that reference it.
 
 After this task `edu.java.rest` contains only: `Application`, `ApiConstants`, `DownloadController`,
-`InfoController`, `LoginController`.
+`InfoController`, `LoginController` — all annotated `@Stateless`.
 
 ---
 
@@ -103,7 +135,7 @@ boundary is created; the resulting Base64 text will be approximately 37 % larger
 
 **What to implement:**
 
-Create `edu.java.service.ChunkedDownloadService` as a `@Singleton` EJB:
+Create `edu.java.service.ChunkedDownloadService` as a `@Stateless` EJB:
 
 1. Inject `DownloadTaskRegistry` via `@Inject`.
 
@@ -137,7 +169,7 @@ Create `edu.java.service.ChunkedDownloadService` as a `@Singleton` EJB:
 
 **What to implement:**
 
-Create `edu.java.rest.DownloadAsyncController` as a `@Singleton` JAX-RS controller mapped to
+Create `edu.java.rest.DownloadAsyncController` as a `@Stateless` JAX-RS controller mapped to
 `@Path(ApiConstants.RESOURCE_API_DOWNLOAD)`. Add `RESOURCE_API_DOWNLOAD = "download"` to
 `ApiConstants`.
 
