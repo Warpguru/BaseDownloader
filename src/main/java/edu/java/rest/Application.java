@@ -26,17 +26,17 @@ import org.eclipse.microprofile.openapi.annotations.security.SecuritySchemes;
 	externalDocs = 
 		@ExternalDocumentation(
 			description = "BaseDownloader",
-			url = "http://github.com/blabla"),
+			url = "https://github.com/Warpguru/BaseDownloader"),
 			info = 
 				@Info(
 					title="BaseDownloader", 
 					version = "1.0.0", 
-					termsOfService = "http://github.com/blabla",
+					termsOfService = "https://github.com/Warpguru/BaseDownloader",
 					contact = 
 						@Contact(
 							name = "Roman Stangl",
 							email = "Roman.Stangl@gmx.net",
-							url = "http://github.com/blabla")))
+							url = "https://github.com/Warpguru/BaseDownloader")))
 //@formatter:on
 @ApplicationPath(ApiConstants.RESOURCE_API_APPLICATON)
 public class Application extends javax.ws.rs.core.Application {

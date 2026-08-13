@@ -318,3 +318,428 @@ Create `edu.java.service.DownloadCleanupScheduler` as a `@Singleton` EJB:
      `base64 -d {name}.1.txt > {originalFileName}` (Linux) and verify the file is intact.
   6. Test with a multi-chunk file (> 1 MB) to verify chunk boundaries and reassembly.
 - Test FTP URL: use a publicly accessible FTP URL to confirm `ftp://` scheme is handled.
+
+---
+
+## Task 9 — Per-chunk checksums (CRC32 and MD5) ☐
+
+**What to implement:**
+
+Currently `DownloadTask.chunks` is a `List<String>` where each entry is the raw Base64 text.
+A chunk must now carry two checksums alongside its content so the user can verify integrity
+after downloading. Replace the bare `String` with a new value object.
+
+1. Create `edu.java.service.DownloadChunk` — a plain immutable Java class with three fields:
+   - `String base64Content` — the Base64-encoded text of this chunk (previously stored directly
+     in `DownloadTask.chunks`)
+   - `String crc32Hex` — CRC32 checksum of `base64Content` (the encoded text, not the raw bytes)
+     expressed as an 8-character zero-padded lowercase hex string (e.g. `"0a3f7c21"`).
+     Rationale: the user downloads the Base64 text file and can verify it with any CRC32 tool
+     before attempting reassembly. `java.util.zip.CRC32` is used; no external dependency needed.
+   - `String md5Hex` — MD5 checksum of `base64Content` expressed as a 32-character lowercase hex
+     string. `java.security.MessageDigest` with algorithm `"MD5"` is used. This allows the user
+     to run `md5sum {name}.N.txt` (Linux) or `certutil -hashfile {name}.N.txt MD5` (Windows) on
+     the downloaded chunk file to verify it matches.
+   - A constructor `DownloadChunk(String base64Content)` that computes both checksums immediately
+     at construction time and stores them.
+   - Javadoc must explain: why the checksum covers the Base64 text (not the decoded bytes) —
+     because the user verifies the file they actually downloaded before decoding; and why both
+     CRC32 and MD5 are provided — CRC32 is fast and available in every OS tool, MD5 is the
+     standard for file integrity in Linux (`md5sum`) and Windows (`certutil`).
+
+2. Update `DownloadTask`:
+   - Change `List<String> chunks` to `List<DownloadChunk> chunks`.
+   - Update `add(String chunk)` to `add(DownloadChunk chunk)`, or keep the `String` overload and
+     add a new `add(DownloadChunk chunk)` — whichever is cleaner given the existing call sites.
+   - Update `getChunk(int index)` to return `DownloadChunk` (or `null`).
+   - `getNumberOfChunks()` and `setNumberOfTotalChunks()` are unaffected.
+
+3. Update `ChunkedDownloadService.startDownload()`:
+   - Wherever `downloadTask.add(Base64.getEncoder().encodeToString(...))` is called, wrap the
+     result in `new DownloadChunk(encodedString)` before passing to `add()`.
+
+4. Update `DownloadAsyncController`:
+   - **Status page (`getDownloadStatus`)**: for each chunk link, append the CRC32 and MD5 values
+     next to the link so the user can note them before downloading:
+     `<a href="...">data.zip.1.txt</a> CRC32: 0a3f7c21 | MD5: d41d8cd98f00b204e9800998ecf8427e`
+   - **Chunk download (`getChunk`)**: add response headers
+     `X-BD-CRC32: {crc32Hex}` and `X-BD-MD5: {md5Hex}` so programmatic callers can verify
+     the downloaded chunk without parsing the HTML status page.
+   - **List endpoint (`listDownloads`)**: the JSON per-task summary does not need to enumerate
+     individual chunk checksums (that would be verbose); no change needed there.
+
+5. Update `ApiConstants`: add constants
+   `HEADER_X_BD_CRC32 = "X-BD-CRC32"` and `HEADER_X_BD_MD5 = "X-BD-MD5"`.
+
+---
+
+## Task 10 — Filesystem persistence of Base64 chunks ☐
+
+**What to implement:**
+
+Chunks are currently held entirely in memory as `String` fields inside `DownloadTask`. For large
+downloads (e.g. an OpenLiberty server ZIP at several hundred MB, whose Base64 representation is
+~37 % larger still) this would exhaust the JVM heap. Chunks must instead be written to disk as
+soon as they are produced, and served from disk on demand.
+
+### 10.1 — Configuration: chunk storage directory
+
+1. Add a Liberty `<variable>` element to `src/main/liberty/config/server.xml`:
+   ```xml
+   <variable name="bd.chunk.dir" defaultValue="${java.io.tmpdir}/Base-Downloader" />
+   ```
+   The `defaultValue` attribute means the variable is optional: if an operator wants to override
+   the location they add `<variable name="bd.chunk.dir" value="/data/bd-chunks"/>` to their
+   `server.xml`. The `${java.io.tmpdir}` expression is expanded by Liberty at startup to the
+   JVM temporary directory.
+
+2. Add a MicroProfile Config property source so the value is injectable in Java. In
+   `src/main/liberty/config/server.xml` Liberty exposes its `<variable>` elements as MicroProfile
+   Config properties automatically when the `microProfile-4.1` feature is active. Therefore no
+   additional configuration file is needed.
+
+3. Create `edu.java.service.ChunkStorageService` as an `@ApplicationScoped` CDI bean:
+   - Inject the config value: `@Inject @ConfigProperty(name = "bd.chunk.dir") String chunkBaseDir`.
+   - Expose:
+     - `Path resolveChunkFile(String uuid, int chunkIndex, String originalFileName)` — returns
+       `{chunkBaseDir}/{uuid}/{originalFileName}.{chunkIndex}.txt` (e.g.
+       `Base-Downloader/550e8400-.../data.zip.1.txt`). The filename on disk is intentionally
+       identical to the `Content-Disposition` filename the browser saves when the user clicks a
+       chunk link, so the filesystem mirrors 1:1 what is shown on the status page. No zero-
+       padding is used: the application always reads chunks by computed path, never by iterating
+       directory entries, so filesystem sort order is irrelevant.
+     - `void writeChunk(String uuid, int chunkIndex, String originalFileName, String base64Content)`
+       — creates the directory `{chunkBaseDir}/{uuid}/` if it does not exist, writes
+       `base64Content` as UTF-8 text to the chunk file, and returns.
+     - `String readChunk(String uuid, int chunkIndex, String originalFileName)` — reads and
+       returns the UTF-8 text from the chunk file, or throws `IOException` if the file does not
+       exist.
+     - `void deleteTaskDirectory(String uuid)` — deletes the directory
+       `{chunkBaseDir}/{uuid}/` and all its contents recursively.
+     - `void deleteAllTaskDirectories()` — deletes the entire `{chunkBaseDir}/` tree and
+       recreates an empty `{chunkBaseDir}/` directory. Used at startup (Task 11).
+   - Javadoc must explain: why the disk filename mirrors the user-visible name (1:1
+     correspondence between status-page links and on-disk files aids debugging and manual
+     recovery); why the base directory is configurable (the Liberty working directory may be on
+     a small or read-only partition in production); why UTF-8 is used for writing (Base64 is
+     pure ASCII, a strict subset of UTF-8, so any text-aware tool can open the file).
+
+### 10.2 — Update `DownloadChunk` (from Task 9)
+
+`DownloadChunk` no longer stores `base64Content` as an in-memory `String`. Instead it stores:
+- `String uuid` — the owning task's UUID (needed to locate the file)
+- `int chunkIndex` — 1-based index (needed to locate the file; matches the user-visible index
+  and the on-disk filename)
+- `String originalFileName` — the owning task's original filename (needed to locate the file)
+- `String crc32Hex` — computed at write time (same as Task 9)
+- `String md5Hex` — computed at write time (same as Task 9)
+- Remove `base64Content` field; `getBase64Content()` must now read from disk via
+  `ChunkStorageService.readChunk(uuid, chunkIndex, originalFileName)`.
+
+The constructor signature becomes
+`DownloadChunk(String uuid, int chunkIndex, String originalFileName, String base64Content, ChunkStorageService storage)`:
+it computes the checksums from `base64Content`, calls
+`storage.writeChunk(uuid, chunkIndex, originalFileName, base64Content)`, and stores only the
+metadata fields. `getBase64Content()` calls
+`storage.readChunk(uuid, chunkIndex, originalFileName)`.
+
+Javadoc must explain why `base64Content` is not retained in memory after construction: for a
+100 MB binary the Base64 text is ~137 MB; with multiple concurrent downloads the JVM heap would
+be exhausted. The disk acts as a cheap, unbounded buffer.
+
+### 10.3 — Update `ChunkedDownloadService`
+
+- Inject `ChunkStorageService` via `@Inject`.
+- Pass `ChunkStorageService` to each `new DownloadChunk(...)` constructor call so the chunk can
+  persist itself immediately.
+- Track the 0-based chunk index explicitly (currently implicit from `chunks.size()`) to pass to
+  the `DownloadChunk` constructor.
+- The existing 3-byte-aligned Base64 encoding logic is unchanged.
+- Javadoc update: note that chunks are now written to `{bd.chunk.dir}/{uuid}/{index:04d}` and
+  that memory usage is bounded regardless of file size.
+
+### 10.4 — Update `DownloadAsyncController` (chunk download endpoint)
+
+- Inject `ChunkStorageService` via `@Inject`.
+- In `getChunk()`, replace direct access to `task.getChunk(index).base64Content` with
+  `task.getChunk(index).getBase64Content()` (which now reads from disk via `ChunkStorageService`).
+- Propagate `IOException` from `readChunk` as a 500 Internal Server Error with a descriptive
+  message (do not expose the filesystem path in the response body).
+
+### 10.5 — Update `DownloadTaskRegistry.removeExpired()`
+
+- Inject `ChunkStorageService` via `@Inject`.
+- After removing an expired task from the map, call
+  `chunkStorageService.deleteTaskDirectory(task.getUuid())` so the chunk files are deleted at
+  the same time the in-memory registry entry is evicted.
+- Javadoc update: note that both the in-memory entry and the on-disk directory are removed
+  together, and that a failure to delete the directory is logged but does not prevent the
+  registry entry from being removed.
+
+---
+
+## Task 11 — Cleanup of persisted chunk directories on server restart ☐
+
+**What to implement:**
+
+When the Liberty server restarts (e.g. after a crash or a `mvn liberty:stop` + `mvn liberty:run`
+cycle), any chunk directories written during the previous run remain on disk but the in-memory
+`DownloadTaskRegistry` is empty. Without cleanup, those orphaned directories would accumulate
+indefinitely on the server's filesystem.
+
+### Analysis of startup hook options on Liberty
+
+Three mechanisms can run code at application startup in a Jakarta EE / Liberty environment:
+
+| Mechanism | How to use | When it fires | Suitable? |
+|---|---|---|---|
+| `@Singleton` EJB `@PostConstruct` | Annotate a method `@PostConstruct` on a `@Singleton` EJB | After the EJB container initialises the singleton, before the first business method call | ✅ Reliable on Liberty; EJBs are initialised before the first HTTP request is dispatched |
+| `ServletContextListener.contextInitialized()` | Implement `javax.servlet.ServletContextListener`, annotate with `@WebListener` | When the web application is started, before any servlet or filter is initialised | ✅ Well-defined startup order; fires before any HTTP request |
+| CDI `@ApplicationScoped` `@Observes @Initialized(ApplicationScoped.class)` | Observe the CDI application-scope initialisation event | When the CDI container starts the application scope | ✅ Works on Liberty with CDI 2.0; slightly less portable |
+
+**Recommendation:** Use a `@Singleton` EJB `@PostConstruct`. Reasons:
+- The EJB container on Liberty guarantees that all `@Singleton` beans are initialised eagerly
+  when the application starts (Liberty initialises them before the first request).
+- The `@PostConstruct` method can `@Inject` `ChunkStorageService` directly, keeping the
+  implementation simple.
+- The `@Schedule`-based `DownloadCleanupScheduler` is already a `@Singleton` EJB; adding a
+  second `@Singleton` for startup cleanup is consistent.
+- A `ServletContextListener` would also work but cannot `@Inject` CDI/EJB beans reliably in
+  all Liberty versions without additional configuration.
+
+### What to implement
+
+Create `edu.java.service.StartupCleanupService` as a `@Singleton` EJB with
+`@Startup` (forces eager initialisation) :
+
+- Inject `ChunkStorageService` via `@Inject`.
+- Add a `@PostConstruct` method `cleanupOnStartup()` that calls
+  `chunkStorageService.deleteAllTaskDirectories()`.
+- Log (via `System.out.println`) the path that was cleaned and how many top-level UUID
+  directories were removed.
+- Javadoc must explain: why `@Startup` is needed (without it Liberty may defer singleton
+  initialisation until the first call, meaning the cleanup would only run when the first
+  request arrives rather than at server start); why orphaned directories accumulate (the
+  in-memory registry is lost on restart but disk files are not); and why the entire base
+  directory is wiped rather than trying to match orphans against a registry (the registry is
+  empty on startup, so every existing directory is by definition an orphan).
+
+---
+
+## Task 12 — Application security: login page with file-based credential store ☐
+
+**What to implement:**
+
+The `security` package contains a partial `HttpAuthenticationMechanism` skeleton that reads
+`username`, `password`, and `token` from request parameters but always grants access (the
+`validate()` method never checks the values against any store). This task replaces that
+skeleton with a complete, consistent security implementation across the application.
+
+### 12.1 — Analysis: available options (agent must present these and ask for a decision)
+
+Before implementing, the agent must analyse the following three options in the context of this
+Jakarta EE 8 / Liberty application, explain the trade-offs, and **ask the user which option to
+implement** before writing any code.
+
+**Option A — Custom `HttpAuthenticationMechanism` (extend the existing skeleton)**
+
+Jakarta Security 1.0 (`javax.security.enterprise`) is already on the classpath via
+`jakartaee-8.0`. The existing `AuthenticationMechanism` class already implements
+`HttpAuthenticationMechanism`. The approach:
+- Complete `validate()` to check the submitted triple against a credential file (see 12.2).
+- Annotate with `@FormAuthenticationMechanismDefinition` or keep the custom `validateRequest`
+  implementation (the custom approach is more flexible for the three-field form).
+- Protect all REST paths under `/api/*` with `@RolesAllowed("User")` (or similar) on the
+  controller classes, which causes the container to invoke `validateRequest` automatically.
+- The login HTML form at `GET /api/login` becomes the entry point; the container redirects
+  unauthenticated requests to it.
+- **Pros**: fully standards-based; session management (cookie) is handled by the container;
+  integrates with Liberty's `appSecurity-3.0` feature already included in `jakartaee-8.0`.
+- **Cons**: requires configuring Liberty's security constraints (either via `web.xml` security
+  constraints or programmatic `HttpMessageContext`); the three-field credential (username +
+  password + token) is non-standard and needs a custom `IdentityStore`.
+
+**Option B — `@FormAuthenticationMechanismDefinition` with a custom `IdentityStore`**
+
+Use the built-in Jakarta Security form-login mechanism triggered by the
+`@FormAuthenticationMechanismDefinition(loginPage="/login.html", errorPage="/login-error.html")`
+annotation on the `Application` class. Implement a custom `IdentityStore` that:
+- Reads credentials from the file (see 12.2).
+- Validates the `UsernamePasswordCredential` submitted by the form.
+- Note: the standard form mechanism submits only `j_username` and `j_password`; a token field
+  cannot be added without a custom mechanism.
+- **Pros**: the least code — the container handles the redirect, session cookie, and logout.
+- **Cons**: the standard form supports only username + password, not the required three-field
+  triple. Would require a hybrid that overrides credential extraction, making it as complex as
+  Option A.
+
+**Option C — Programmatic session-cookie auth (no container security integration)**
+
+Skip `HttpAuthenticationMechanism` entirely. Implement login as a plain JAX-RS `POST /api/login`
+endpoint that:
+- Validates the submitted triple against the credential file.
+- On success, creates an `HttpSession` (via injected `HttpServletRequest`) and stores the
+  authenticated username in the session.
+- Returns a redirect to the application root.
+On every subsequent request, a JAX-RS `ContainerRequestFilter` checks for the session attribute
+and returns 401 (after the 30-second sleep) if it is absent.
+- **Pros**: simple; no container security configuration needed; full control over the 30-second
+  sleep behaviour on all unauthenticated requests.
+- **Cons**: re-implements what the container provides; session management is manual; CSRF
+  protection must also be handled manually.
+
+### 12.2 — Credential file format
+
+Regardless of the chosen option, credentials are stored in a UTF-8 properties file located at
+a path configured in `server.xml` as a Liberty variable:
+```xml
+<variable name="bd.credentials.file" defaultValue="${server.config.dir}/bd-credentials.properties" />
+```
+File format (one credential triple per line, `#` comments allowed):
+```properties
+# username=password:token
+admin=s3cr3t:mytoken123
+readonly=pass1:tok456
+```
+- `password` and `token` are stored in plaintext in this PoC. A Javadoc note must acknowledge
+  this and recommend replacing with hashed values (e.g. BCrypt) in a production deployment.
+- The file is read once at application startup and cached in memory (reloading requires a
+  server restart). A `@PostConstruct` method in the credential-loading bean handles the
+  initial read.
+- Add constant `BD_CREDENTIALS_FILE_CONFIG_PROPERTY = "bd.credentials.file"` to `ApiConstants`.
+
+### 12.3 — What to implement (after the user selects an option)
+
+Whichever option is chosen, the following must be true across the entire application:
+
+1. Accessing `GET /base-downloader/` (the context root) redirects to the login page.
+2. All `/api/*` paths except `GET /api/info` (health check) require the user to be authenticated.
+3. `GET /api/download` (the submit form — Task 3) must also require authentication, since it was
+   previously public. Update the `showSubmitForm` method accordingly.
+4. `AuthService.enforceAuth()` must be updated to check the container-managed session (or the
+   session attribute, depending on the chosen option) in addition to (or instead of) the
+   hardcoded `BD:1.0.0` credential. The hardcoded credential is removed. The deliberate
+   30-second sleep on auth failure is retained.
+5. The existing `security.Credentials`, `security.CredentialsCallerPrincipal`, and
+   `security.AuthenticationMechanism` classes are refactored (not replaced from scratch) to
+   incorporate the file-based credential store.
+6. All new and modified classes carry Javadoc explaining the security model, the credential
+   file location, and the deliberate brute-force mitigation (30-second sleep).
+7. The `security` package is moved to `edu.java.security` to align with the project's package
+   naming convention. Update all `import` statements that reference it.
+
+---
+
+## Task 13 — Consistent HTML look-and-feel via `HtmlService` ☐
+
+**What to implement:**
+
+Every HTML page currently produced by the application is assembled by inline string
+concatenation inside the controller methods. Each page has a different visual structure, no
+shared header or footer, and raw `border="1"` table attributes as the only styling. This task
+introduces a dedicated `HtmlService` in `edu.java.service` that owns all HTML generation,
+giving every page a consistent, professional appearance using only plain HTML and a small
+inline `<style>` block — no external CSS files, no JavaScript frameworks, no build tools.
+Controllers become pure routing + data-fetch code; they call `HtmlService` methods to obtain
+finished HTML strings, following the MVC pattern.
+
+### 13.1 — Create `edu.java.service.HtmlService`
+
+Create `edu.java.service.HtmlService` as an `@ApplicationScoped` CDI bean.
+
+**Page layout:** every page is structured as:
+
+```
+┌──────────────────────────────────────────────────────┐
+│  HEADER: BaseDownloader vX.Y.Z  |  GitHub link       │
+│          tagline                                      │
+├──────────────────────────────────────────────────────┤
+│  BREADCRUMB: Home > Downloads > <page title>         │
+├──────────────────────────────────────────────────────┤
+│  BODY: context-dependent content                     │
+├──────────────────────────────────────────────────────┤
+│  FOOTER: © BaseDownloader | OpenAPI UI link          │
+└──────────────────────────────────────────────────────┘
+```
+
+**Styling rules (inline `<style>` in `<head>`, no external files):**
+- Font: `font-family: Arial, Helvetica, sans-serif; font-size: 14px;` on `body`.
+- Max page width: `max-width: 960px; margin: 0 auto; padding: 1em;` on a `<div class="page">`.
+- Header: light blue background (`#e8f4f8`), `padding: 0.5em 1em`, horizontal rule below.
+- Tables: `border-collapse: collapse` with `border: 1px solid #ccc` on `th` and `td`,
+  `padding: 0.3em 0.6em`. Header row (`<thead>`) has background `#ddeeff`.
+- `<pre>` blocks: `background: #f4f4f4; padding: 0.5em; border-left: 3px solid #0066cc`.
+- Links: standard blue, no custom override.
+- Status badges: `DONE` in green (`#006600`), `FAILED` in red (`#cc0000`),
+  `IN_PROGRESS` / `PENDING` in orange (`#cc6600`) — rendered as `<span>` with inline colour.
+- No JavaScript except the minimal `openLinks()` function already used on the status page
+  (and only on that page, only when status is `DONE`). No jQuery, no Bootstrap, no external
+  resources that would require an internet connection.
+
+**Public methods on `HtmlService`:**
+
+All methods take a `String pageTitle` and a `String bodyHtml` (pre-built body content) and
+wrap them in the full page structure. Overloads or a builder pattern are acceptable.
+
+- `String page(String pageTitle, String bodyHtml)` — standard page with header, breadcrumb
+  derived from `pageTitle`, body, and footer.
+- `String page(String pageTitle, String bodyHtml, String extraHeadHtml)` — same but inserts
+  `extraHeadHtml` into `<head>` (used for the `openLinks()` script on the status page).
+- `String errorPage(int httpStatus, String message)` — produces a minimal page with the HTTP
+  status code and message in a styled error box; used for 400, 401, 404, 500 responses.
+- `String table(String[] headers, List<String[]> rows)` — builds a styled `<table>` with
+  `<thead>` and `<tbody>` from the given headers and row data arrays.
+- `String statusBadge(DownloadTask.Status status)` — returns a `<span>` coloured according
+  to the status value (green / red / orange as above).
+
+The application name, version string, and GitHub URL must be constants in `ApiConstants`:
+- `APP_DISPLAY_NAME = "BaseDownloader"`
+- `APP_VERSION = "1.0.0"`
+- `APP_GITHUB_URL = "https://github.com/RomanStangl/base-downloader"` (update to the real URL)
+
+Javadoc on `HtmlService` must explain: why all styling is inline (no external files to deploy
+or cache-bust; the entire appearance is self-contained in the WAR); why JavaScript is kept
+minimal (the application targets Java developers who may inspect the page source; simple HTML
+is more readable and auditable than a JS-heavy SPA); and why `HtmlService` is `@ApplicationScoped`
+(it holds no mutable state — only constants and string-building logic — so a single shared
+instance is sufficient).
+
+### 13.2 — Migrate all controllers to use `HtmlService`
+
+Update every controller method that currently returns `text/html` to:
+1. Build the body content as a local `String` or `StringBuilder` (data-driven, no page chrome).
+2. Call `HtmlService.page(...)` or `HtmlService.errorPage(...)` to wrap it.
+3. Return the result via `Response.ok(html).build()` as before.
+
+Affected methods (based on current code):
+
+| Controller | Method | Page title |
+|---|---|---|
+| `DownloadAsyncController` | `showSubmitForm` | `"Submit Download"` |
+| `DownloadAsyncController` | `submitDownload` (202, 400, 401, 500) | `"Download Submitted"` / error pages |
+| `DownloadAsyncController` | `getDownloadStatus` (200, 401, 404) | `"Download Status — {uuid}"` |
+| `DownloadAsyncController` | `getChunk` (401, 404) | error pages only (chunk response is `text/plain`) |
+| `DownloadAsyncController` | `listDownloads` (200, 401) | `"Active Downloads"` |
+| `DownloadController` | `base64Download` (500) | error page only (200 response is existing HTML) |
+| `LoginController` | `login` (GET) | `"Login"` |
+| `LoginController` | `login2` (POST) | `"Login"` |
+
+The `DownloadController.base64Download()` 200-response page (which wraps raw Base64 text in a
+`<div style="word-wrap:break-word">`) keeps its existing structure but should be wrapped in
+`HtmlService.page()` for the outer chrome.
+
+### 13.3 — Status page enhancements
+
+When `HtmlService` is in place, improve the status page (`getDownloadStatus`) body:
+
+- Show the status as a coloured badge from `HtmlService.statusBadge()` rather than plain text.
+- Use `HtmlService.table()` for the request-details table (UUID, URL, file, submitted, expires,
+  status).
+- For `DONE`: list chunks in a `<table>` (not `<ol>`) with columns:
+  `#` | `Filename` | `CRC32` | `MD5` | `Download link` — so checksums (from Task 9) are
+  visible at a glance in a tabular layout.
+- For `IN_PROGRESS` / `PENDING`: add a `<meta http-equiv="refresh" content="5">` tag in
+  `extraHeadHtml` so the page auto-refreshes every 5 seconds without any JavaScript.
+
+The auto-refresh `<meta>` tag is the only HTML-native way to poll for status without
+JavaScript; it is appropriate here and does not violate the "minimal JS" principle.
