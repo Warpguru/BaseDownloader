@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 
 /**
  * Application-scoped registry that tracks all active {@link DownloadTask} instances.
@@ -17,6 +18,10 @@ import javax.enterprise.context.ApplicationScoped;
 @ApplicationScoped
 public class DownloadTaskRegistry {
 
+    /** Storage service used by {@link #getBase64Content()} to read the chunk file on demand. */
+    @Inject
+    private ChunkStorageService chunkStorageService;
+    
     /** Map of {@link DownloadTask} by download request handle ({@code UUID}). */
     private final ConcurrentHashMap<String, DownloadTask> downloadTasks = new ConcurrentHashMap<>();
 
@@ -61,16 +66,34 @@ public class DownloadTaskRegistry {
     }
 
     /**
-     * Removes all downloadTasks whose {@link DownloadTask#expiresAt} timestamp is strictly before {@link Instant#now()}.
+     * Removes all tasks whose {@link DownloadTask#expiresAt} timestamp is strictly before
+     * {@link Instant#now()}.
      * <p>
-     * This method is called periodically by {@code DownloadCleanupScheduler} (Task 7). Removing a task also releases the
-     * {@link DownloadTask#chunks} list — and therefore all Base64-encoded strings held inside it — from heap memory, preventing
-     * unbounded growth of the in-memory registry over time.
+     * This method is called periodically by {@code DownloadCleanupScheduler}. Both the in-memory
+     * registry entry and the on-disk chunk directory are removed together: after removing the map
+     * entry, {@link ChunkStorageService#deleteTaskDirectory} is called for each evicted task. A
+     * failure to delete the directory is logged but does not prevent the registry entry from being
+     * removed.
      * </p>
      */
     public void removeExpired() {
         final Instant now = Instant.now();
-        downloadTasks.entrySet().removeIf(entry -> entry.getValue().getExpiresAt().isBefore(now));
+        // Collect expired tasks first so we can delete their directories after map removal
+        final java.util.List<DownloadTask> expiredDownloadTasks = new java.util.ArrayList<>();
+        for (final DownloadTask task : downloadTasks.values()) {
+            if (task.getExpiresAt().isBefore(now)) {
+                expiredDownloadTasks.add(task);
+            }
+        }
+        for (final DownloadTask downloadTask : expiredDownloadTasks) {
+            downloadTasks.remove(downloadTask.getUuid());
+            try {
+                chunkStorageService.deleteTaskDirectory(downloadTask.getUuid());
+            } catch (Exception e) {
+                System.out.println("DownloadTaskRegistry: failed to delete chunk dir for "
+                        + downloadTask.getUuid() + ": " + e.getMessage());
+            }
+        }
     }
 
 }

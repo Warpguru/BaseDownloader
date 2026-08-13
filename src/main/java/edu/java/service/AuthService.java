@@ -7,6 +7,7 @@ import javax.json.bind.JsonbException;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import edu.java.application.Constants;
 import edu.java.rest.ApiConstants;
 import edu.java.util.JsonbUtil;
 
@@ -85,7 +86,7 @@ public class AuthService {
 	 * @return {@code null} when the credential is valid; a 401 {@link Response} otherwise
 	 */
 	private Response authenticate(final String authString) throws JsonbException {
-		final String apiKeyAndPassword = "1.0.0";
+		final String apiKeyAndPassword = Constants.LEGACY_API_PASSWORD;
 		if (isUserAuthenticated(authString, apiKeyAndPassword) == false) {
 			String validationMessage = "Unauthorized credentials: " + authString
 					+ ", no valid Basic or Bearer authentication supplied!";

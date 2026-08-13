@@ -4,10 +4,10 @@
     <!-- Enable features -->
     <featureManager>
         <feature>localConnector-1.0</feature>
-    	<feature>adminCenter-1.0</feature>
-		<feature>openapi-3.1</feature>
-		<feature>jakartaee-8.0</feature>
-	    <feature>restConnector-2.0</feature>
+        <feature>adminCenter-1.0</feature>
+        <feature>jakartaee-8.0</feature>
+        <feature>restConnector-2.0</feature>
+        <feature>microProfile-4.1</feature>
     </featureManager>
 
     <!-- To access this server from a remote client add a host attribute to the following element, e.g. host="*" -->
@@ -49,6 +49,9 @@
 
     <!-- Automatically expand WAR files and EAR files -->
     <applicationManager autoExpand="true"/>
+
+    <!-- Chunk storage directory; override with <variable name="bd.chunk.dir" value="/your/path"/> -->
+    <variable name="bd.chunk.dir" defaultValue="${java.io.tmpdir}/Base-Downloader" />
 
     <!-- Configures the application on a specified context root -->
     <webApplication contextRoot="base-downloader" id="BaseDownloader" location="base-downloader.war" name="BaseDownloader"/>

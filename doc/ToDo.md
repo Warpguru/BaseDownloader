@@ -373,7 +373,7 @@ after downloading. Replace the bare `String` with a new value object.
 
 ---
 
-## Task 10 — Filesystem persistence of Base64 chunks ☐
+## Task 10 — Filesystem persistence of Base64 chunks ☑
 
 **What to implement:**
 
@@ -478,7 +478,7 @@ be exhausted. The disk acts as a cheap, unbounded buffer.
 
 ---
 
-## Task 11 — Cleanup of persisted chunk directories on server restart ☐
+## Task 11 — Cleanup of persisted chunk directories on server restart ☑
 
 **What to implement:**
 
