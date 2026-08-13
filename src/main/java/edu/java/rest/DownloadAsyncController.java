@@ -35,6 +35,7 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import edu.java.application.Constants;
+import edu.java.security.RequestContext;
 import edu.java.service.ChunkedDownloadService;
 import edu.java.service.DownloadChunk;
 import edu.java.service.DownloadTask;
@@ -87,6 +88,9 @@ public class DownloadAsyncController {
     @Inject
     private HtmlService htmlService;
 
+    @Inject
+    private RequestContext requestContext;
+
     // -------------------------------------------------------------------------
     // GET /api/download — submit form
     // -------------------------------------------------------------------------
@@ -125,7 +129,7 @@ public class DownloadAsyncController {
                 + "</table>"
                 + "</form>"
                 + "<p><a href=\"" + listLink + "\">View all active downloads &rsaquo;</a></p>";
-        return Response.ok(htmlService.page("Submit Download", body)).build();
+        return Response.ok(htmlService.page("Submit Download", body, "", requestContext.getUsername())).build();
     }
 
     // -------------------------------------------------------------------------
@@ -172,7 +176,7 @@ public class DownloadAsyncController {
 
         if (url == null || url.trim().isEmpty()) {
             return Response.status(Status.BAD_REQUEST)
-                    .entity(htmlService.errorPage(400, "URL must not be blank."))
+                    .entity(htmlService.errorPage(Status.BAD_REQUEST, "URL must not be blank.", requestContext.getUsername()))
                     .build();
         }
 
@@ -181,14 +185,15 @@ public class DownloadAsyncController {
             parsedUrl = new URL(url.trim());
         } catch (MalformedURLException e) {
             return Response.status(Status.BAD_REQUEST)
-                    .entity(htmlService.errorPage(400, "Not a valid URL: " + e.getMessage()))
+                    .entity(htmlService.errorPage(Status.BAD_REQUEST, "Not a valid URL: " + e.getMessage(), requestContext.getUsername()))
                     .build();
         }
         final String protocol = parsedUrl.getProtocol();
         if (!"http".equals(protocol) && !"https".equals(protocol) && !"ftp".equals(protocol)) {
             return Response.status(Status.BAD_REQUEST)
-                    .entity(htmlService.errorPage(400,
-                            "Unsupported protocol '" + protocol + "'. Only http, https, and ftp are accepted."))
+                    .entity(htmlService.errorPage(Status.BAD_REQUEST,
+                            "Unsupported protocol '" + protocol + "'. Only http, https, and ftp are accepted.",
+                            requestContext.getUsername()))
                     .build();
         }
 
@@ -210,7 +215,7 @@ public class DownloadAsyncController {
                 + htmlService.table(new String[]{"Field", "Value"}, rows)
                 + "<p>Reload the status page to check progress.</p>";
 
-        return Response.accepted(htmlService.page("Download Submitted", body))
+        return Response.accepted(htmlService.page("Download Submitted", body, "", requestContext.getUsername()))
                 .header(ApiConstants.HEADER_X_BD_UUID, uuid)
                 .build();
     }
@@ -264,7 +269,7 @@ public class DownloadAsyncController {
         final DownloadTask task = registry.retrieve(uuid);
         if (task == null) {
             return Response.status(Status.NOT_FOUND)
-                    .entity(htmlService.errorPage(404, "No download task with UUID: " + uuid))
+                    .entity(htmlService.errorPage(Status.NOT_FOUND, "No download task with UUID: " + uuid, requestContext.getUsername()))
                     .build();
         }
 
@@ -414,7 +419,7 @@ public class DownloadAsyncController {
         }
 
         return Response.ok(htmlService.page("Download Status \u2014 " + uuid,
-                body.toString(), extraHead.toString())).build();
+                body.toString(), extraHead.toString(), requestContext.getUsername())).build();
     }
 
     // -------------------------------------------------------------------------
@@ -576,7 +581,7 @@ public class DownloadAsyncController {
                     rows));
         }
 
-        return Response.ok(htmlService.page("Active Downloads", body.toString())).build();
+        return Response.ok(htmlService.page("Active Downloads", body.toString(), "", requestContext.getUsername())).build();
     }
 
     // -------------------------------------------------------------------------

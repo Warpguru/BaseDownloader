@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 import edu.java.application.Constants;
 import edu.java.security.AuthFilter;
 import edu.java.security.CredentialStore;
+import edu.java.security.RequestContext;
 import edu.java.service.HtmlService;
 
 /**
@@ -77,6 +78,9 @@ public class LoginController {
 
     @Inject
     private HtmlService htmlService;
+
+    @Inject
+    private RequestContext requestContext;
 
     // -------------------------------------------------------------------------
     // GET /api/login — serve the login form
@@ -206,7 +210,8 @@ public class LoginController {
                 + "<strong>Logged out.</strong> Your session has been invalidated."
                 + "</div>"
                 + "<p><a href=\"" + loginLink + "\">Log in again</a></p>";
-        return Response.ok(htmlService.page("Logged Out", body)).build();
+        // Session already invalidated — no authenticated user to show
+        return Response.ok(htmlService.page("Logged Out", body, "", null)).build();
     }
 
     // -------------------------------------------------------------------------
@@ -239,7 +244,8 @@ public class LoginController {
             .append("</table></form>")
             .append("<p><small>Alternatively, use Basic or Bearer authentication in the "
                     + "<code>Authorization</code> HTTP header for programmatic access.</small></p>");
-        return htmlService.page("Login", body.toString());
+        // Login page is exempt from auth — no authenticated user yet
+        return htmlService.page("Login", body.toString(), "", null);
     }
 
     /**

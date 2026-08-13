@@ -30,6 +30,7 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement
 import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirements;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
+import edu.java.security.RequestContext;
 import edu.java.service.HtmlService;
 import edu.java.service.StreamDownloadService;
 
@@ -61,6 +62,9 @@ public class DownloadController {
 
     @Inject
     private HtmlService htmlService;
+
+    @Inject
+    private RequestContext requestContext;
 
     //@formatter:off
 	@Operation(
@@ -115,15 +119,15 @@ public class DownloadController {
                     + "<div style=\"max-width:100%;word-wrap:break-word;overflow-wrap:break-word\">"
                     + resourceBase64Encoded
                     + "</div>";
-            return Response.ok(htmlService.page(fileName, body)).build();
+            return Response.ok(htmlService.page(fileName, body, "", requestContext.getUsername())).build();
         } catch (Exception e) {
             e.printStackTrace();
             //@formatter:off
-			return Response
-				.status(Status.INTERNAL_SERVER_ERROR)
-				.entity(htmlService.errorPage(500, "Error downloading resource: " + HtmlService.esc(e.getMessage())))
-				.build();
-			//@formatter:on
+   return Response
+    .status(Status.INTERNAL_SERVER_ERROR)
+    .entity(htmlService.errorPage(Status.INTERNAL_SERVER_ERROR, "Error downloading resource: " + HtmlService.esc(e.getMessage()), requestContext.getUsername()))
+    .build();
+   //@formatter:on
         }
     }
 
