@@ -22,8 +22,11 @@ public final class ApiConstants {
      */
     public static final String RESOURCE_API_APPLICATON = Constants.API_BASE;
 
-    /** Path segment for {@code LoginController} ({@code /api/login}). */
+    /** Path segment for {@code LoginController} login form/submit ({@code /api/login}). */
     public static final String RESOURCE_API_LOGIN = "login";
+
+    /** Path segment for the logout endpoint ({@code /api/login/logout}). */
+    public static final String RESOURCE_API_LOGOUT = "login/logout";
 
     /** Path segment for {@code InfoController} ({@code /api/info}). */
     public static final String RESOURCE_API_INFO = "info";

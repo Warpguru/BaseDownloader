@@ -5,7 +5,6 @@ import java.net.URL;
 
 import javax.ejb.Stateless;
 import javax.inject.Inject;
-import javax.resource.spi.AuthenticationMechanism;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
@@ -31,17 +30,16 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement
 import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirements;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
-import edu.java.service.AuthService;
 import edu.java.service.StreamDownloadService;
 
 /**
  * JAX-RS controller for the Base64-download endpoint ({@code GET /api/base}).
  * <p>
- * This controller is intentionally thin: all authentication logic is delegated to {@link AuthService} and all stream-download /
- * Base64-encoding logic is delegated to {@link StreamDownloadService}. The controller itself contains only HTTP glue code.
+ * This controller is intentionally thin: authentication is handled by the JAX-RS
+ * {@code AuthFilter} before any controller method is invoked; all stream-download /
+ * Base64-encoding logic is delegated to {@link StreamDownloadService}.
+ * The controller itself contains only HTTP glue code.
  * </p>
- *
- * @see AuthenticationMechanism
  */
 @Tag(name = "Download WebServices", description = "Maven build info WebServices.")
 @Path(ApiConstants.RESOURCE_API_BASE)
@@ -51,9 +49,6 @@ public class DownloadController {
     // Sample download urls:
     // https://repo1.maven.org/maven2/com/github/javadev/qrcode-generator/1.1/qrcode-generator-1.1.jar
     // https://repo1.maven.org/maven2/log4j/log4j/1.2.17/log4j-1.2.17.zip
-
-    @Inject
-    private AuthService authService;
 
     @Inject
     private StreamDownloadService streamDownloadService;
@@ -110,12 +105,6 @@ public class DownloadController {
 					schema = @org.eclipse.microprofile.openapi.annotations.media.Schema(implementation = String.class)) 
 				@QueryParam("url") final String url) {
 		//@formatter:on
-
-        // Validate user authentication — delegated to AuthService
-        Response authResponse = authService.enforceAuth(authString, apikey);
-        if (authResponse != null) {
-            return authResponse;
-        }
 
         try {
             final URL urlOfResource = new URL(url);

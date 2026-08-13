@@ -526,7 +526,7 @@ Create `edu.java.service.StartupCleanupService` as a `@Singleton` EJB with
 
 ---
 
-## Task 12 — Application security: login page with file-based credential store ☐
+## Task 12 — Application security: login page with file-based credential store ☑
 
 **What to implement:**
 

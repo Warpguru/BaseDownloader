@@ -43,6 +43,13 @@
 	 
 	<applicationMonitor updateTrigger="mbean"/>
 	 
+	   <!--
+	       Redirect http://localhost:9080/ (Liberty server root) to the application context root.
+	       welcomePageRedirectEnabled=true makes Liberty issue a 302 to the first deployed
+	       web application (base-downloader) when the server root is requested with no matching app.
+	   -->
+	   <httpDispatcher welcomePageRedirectEnabled="true"/>
+
 	<mpMetrics authentication="false"/>
 
 	<logging maxFileSize="20" maxFiles="10" traceFileName="trace.log" traceFormat="BASIC" traceSpecification="eclipselink.sql=all"/>
@@ -52,6 +59,15 @@
 
     <!-- Chunk storage directory; override with <variable name="bd.chunk.dir" value="/your/path"/> -->
     <variable name="bd.chunk.dir" defaultValue="${java.io.tmpdir}/Base-Downloader" />
+
+    <!--
+        Credential file for BaseDownloader authentication.
+        Format: one entry per line — username=password:token
+        Lines starting with # are comments.
+        The file is re-read periodically (every minute) so changes take effect without a restart.
+        Override the path with: <variable name="bd.credentials.file" value="/secure/path/bd-credentials.properties"/>
+    -->
+    <variable name="bd.credentials.file" defaultValue="${server.config.dir}/bd-credentials.properties" />
 
     <!-- Configures the application on a specified context root -->
     <webApplication contextRoot="base-downloader" id="BaseDownloader" location="base-downloader.war" name="BaseDownloader"/>

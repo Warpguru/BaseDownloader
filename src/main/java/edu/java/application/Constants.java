@@ -36,6 +36,18 @@ public final class Constants {
      */
     public static final String CONFIG_BD_CHUNK_DIR = "bd.chunk.dir";
 
+    /**
+     * MicroProfile Config property key for the path to the credential properties file.
+     * <p>
+     * Mapped in {@code server.xml} as:
+     * {@code <variable name="bd.credentials.file" defaultValue="${server.config.dir}/bd-credentials.properties"/>}.
+     * {@code ${server.config.dir}} is Liberty's configuration directory — outside the WAR, fully
+     * operator-editable and surviving redeployment. The file is re-read periodically so changes
+     * take effect without a server restart.
+     * </p>
+     */
+    public static final String CONFIG_BD_CREDENTIALS_FILE = "bd.credentials.file";
+
     // -------------------------------------------------------------------------
     // File-system / file-naming conventions
     // -------------------------------------------------------------------------
@@ -98,15 +110,18 @@ public final class Constants {
     public static final String APP_GITHUB_URL = "https://github.com/Warpguru/BaseDownloader";
 
     // -------------------------------------------------------------------------
-    // Legacy / PoC credential (to be replaced in Task 12)
+    // Legacy / PoC credential (kept for reference; no longer used at runtime)
     // -------------------------------------------------------------------------
 
     /**
-     * Hard-coded API password used by {@code AuthService} until Task 12 introduces a file-based credential store.
+     * Hard-coded API password used by the legacy {@code DownloadController} before Task 12
+     * introduced the file-based {@code CredentialStore}.  Retained as a named constant so that
+     * the default {@code bd-credentials.properties} sample file can reference its value in a
+     * comment; it is no longer read at runtime.
      *
      * <p>
-     * <strong>Security note:</strong> this credential is a PoC placeholder. It MUST be replaced with a proper credential store
-     * before any production deployment.
+     * <strong>Security note:</strong> this value is a PoC placeholder.  Production deployments
+     * must use a real credential file managed outside the WAR.
      * </p>
      */
     public static final String LEGACY_API_PASSWORD = "1.0.0";

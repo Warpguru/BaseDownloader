@@ -17,7 +17,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import edu.java.application.Constants;
-import edu.java.rest.InfoController;
 
 /**
  * EJB singleton that cleans up orphaned chunk directories from previous server runs on application startup.
