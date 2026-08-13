@@ -299,7 +299,7 @@ Create `edu.java.service.DownloadCleanupScheduler` as a `@Singleton` EJB:
 
 ---
 
-## Task 8 — Wire-up and integration validation ☐
+## Task 8 — Wire-up and integration validation ☑
 
 **What to implement:**
 
