@@ -9,16 +9,16 @@ import java.util.UUID;
 /**
  * Holds all state for a single asynchronous Base64-chunked download request.
  *
- * <h2>Why chunks?</h2>
+ * <h2>Why downloadChunks?</h2>
  * <p>
  * Corporate firewalls and web proxies frequently block or truncate binary HTTP responses (e.g.
  * {@code application/octet-stream}) while allowing plain-text responses to pass through without inspection. By Base64-encoding
- * the downloaded resource and splitting it into plain-text chunks, each chunk can be retrieved individually as a
+ * the downloaded resource and splitting it into plain-text downloadChunks, each chunk can be retrieved individually as a
  * {@code text/plain} HTTP response, bypassing those restrictions. The client reassembles the original binary by concatenating
- * all chunks and decoding the combined Base64 string.
+ * all downloadChunks and decoding the combined Base64 string.
  * </p>
  *
- * <h2>Why a {@link List} for chunks?</h2>
+ * <h2>Why a {@link List} for downloadChunks?</h2>
  * <p>
  * Chunks must be reassembled in the exact order they were produced; a {@link List} preserves insertion order so that
  * index-based retrieval ({@code GET /api/download/{uuid}/{index}}) maps deterministically to the corresponding segment of the
@@ -42,7 +42,7 @@ public class DownloadTask {
         PENDING,
         /** The background thread is actively downloading and encoding. */
         IN_PROGRESS,
-        /** Download completed successfully; all chunks are available. */
+        /** Download completed successfully; all downloadChunks are available. */
         DONE,
         /** Download failed; see {@link DownloadTask#errorMessage} for details. */
         FAILED
@@ -58,14 +58,15 @@ public class DownloadTask {
     private String originalFileName;
 
     /**
-     * Ordered list of Base64-encoded text chunks produced by the background download. Each entry except the last represents
-     * exactly {@code ApiConstants.CHUNK_SIZE_BYTES} of original binary data; the last entry may be smaller.
+     * Ordered list of downloadChunks produced by the background download, each carrying Base64 content and CRC32/MD5 checksums. Each
+     * entry except the last represents exactly {@code ApiConstants.CHUNK_SIZE_BYTES} of original binary data; the last entry
+     * may be smaller.
      */
-    private List<String> chunks;
+    private List<DownloadChunk> downloadChunks;
 
     /**
-     * Total number of chunks once the download is complete, or {@code -1} while the download is still running. Set to
-     * {@code chunks.size()} when {@link #status} transitions to {@link Status#DONE} or {@link Status#FAILED}.
+     * Total number of downloadChunks once the download is complete, or {@code -1} while the download is still running. Set to
+     * {@code downloadChunks.size()} when {@link #status} transitions to {@link Status#DONE} or {@link Status#FAILED}.
      */
     private int totalChunks;
 
@@ -95,7 +96,7 @@ public class DownloadTask {
         this.uuid = UUID.randomUUID().toString();
         this.requestedUrl = requestedUrl;
         this.originalFileName = originalFileName;
-        this.chunks = new ArrayList<>();
+        this.downloadChunks = new ArrayList<DownloadChunk>();
         this.totalChunks = -1;
         this.status = Status.PENDING;
         this.errorMessage = null;
@@ -104,29 +105,29 @@ public class DownloadTask {
     }
 
     /**
-     * Add a non-null {@code chunk} to {@link DownloadTask#chunks}.
-     * 
-     * @param chunk to add
-     * @return {@link DownloadTask}
+     * Adds a non-null {@link DownloadChunk} to the chunk list.
+     *
+     * @param downloadChunk the chunk to add; ignored if {@code null}
+     * @return this task (for chaining)
      */
-    public DownloadTask add(final String chunk) {
-        if (chunk != null) {
-            chunks.add(chunk);
+    public DownloadTask add(final DownloadChunk downloadChunk) {
+        if (downloadChunk != null) {
+            downloadChunks.add(downloadChunk);
         }
         return this;
     }
 
     /**
-     * Retrieve the number of {@link DownloadTask#chunks}.
+     * Retrieve the number of {@link DownloadTask#downloadChunks}.
      * 
      * @return numberOfChunks
      */
     public int getNumberOfChunks() {
-        return chunks.size();
+        return downloadChunks.size();
     }
 
     /**
-     * Set the number of chunks processed to {@link DownloadTask#totalChunks}.
+     * Set the number of downloadChunks processed to {@link DownloadTask#totalChunks}.
      * 
      * @param totalChunks to set
      * @return {@link DownloadTask}
@@ -137,7 +138,7 @@ public class DownloadTask {
     }
 
     /**
-     * Retrieve the {@link DownloadTask#chunks} of download request.
+     * Retrieve the {@link DownloadTask#downloadChunks} of download request.
      * 
      * @return uuid
      */
@@ -164,21 +165,21 @@ public class DownloadTask {
     }
 
     /**
-     * Returns the Base64-encoded chunk at the given 0-based index, or {@code null} if the index is out of range or the chunk
+     * Returns the {@link DownloadChunk} at the given 0-based index, or {@code null} if the index is out of range or the chunk
      * has not yet been produced by the background download.
      *
      * @param index 0-based chunk index
-     * @return the Base64 chunk string, or {@code null} if not available
+     * @return the {@link DownloadChunk}, or {@code null} if not available
      */
-    public String getChunk(final int index) {
-        if (index < 0 || index >= chunks.size()) {
+    public DownloadChunk getDownloadChunk(final int index) {
+        if (index < 0 || index >= downloadChunks.size()) {
             return null;
         }
-        return chunks.get(index);
+        return downloadChunks.get(index);
     }
 
     /**
-     * Retrieve the total number of chunks once complete, or {@code -1} while still running.
+     * Retrieve the total number of downloadChunks once complete, or {@code -1} while still running.
      *
      * @return totalChunks
      */

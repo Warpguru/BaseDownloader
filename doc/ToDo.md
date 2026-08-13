@@ -321,7 +321,7 @@ Create `edu.java.service.DownloadCleanupScheduler` as a `@Singleton` EJB:
 
 ---
 
-## Task 9 — Per-chunk checksums (CRC32 and MD5) ☐
+## Task 9 — Per-chunk checksums (CRC32 and MD5) ☑
 
 **What to implement:**
 

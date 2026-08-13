@@ -126,7 +126,7 @@ public class ChunkedDownloadService {
                             System.arraycopy(chunkBuffer, encodeSize - clipboardBuffer.length, clipboardBuffer, 0, newClipSize);
                         }
 
-                        downloadTask.add(Base64.getEncoder().encodeToString(encodeBuffer));
+                        downloadTask.add(new DownloadChunk(Base64.getEncoder().encodeToString(encodeBuffer)));
                         System.out.println("ChunkedDownloadService: emitted chunk " + downloadTask.getNumberOfChunks() + " of "
                                 + encodeBuffer.length + " bytes");
 
@@ -144,7 +144,7 @@ public class ChunkedDownloadService {
             System.arraycopy(clipboardBuffer, 0, finalRaw, 0, clipboardBuffer.length);
             System.arraycopy(chunkBuffer, 0, finalRaw, clipboardBuffer.length, chunkBuffer.length);
             // The final encode may have padding — this is the only '=' that should appear.
-            downloadTask.add(Base64.getEncoder().encodeToString(finalRaw));
+            downloadTask.add(new DownloadChunk(Base64.getEncoder().encodeToString(finalRaw)));
             System.out.println("ChunkedDownloadService: emitted final chunk " + downloadTask.getNumberOfChunks() + " of "
                     + finalRaw.length + " bytes");
 

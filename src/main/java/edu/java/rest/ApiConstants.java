@@ -29,6 +29,12 @@ public class ApiConstants {
     /** Response header carrying a human-readable message on authentication failure. */
     public final static String HEADER_X_BD_MESSAGE = "X-BD-Message";
 
+    /** Response header carrying the CRC32 checksum (8-char lowercase hex) of a downloaded chunk. */
+    public final static String HEADER_X_BD_CRC32 = "X-BD-CRC32";
+
+    /** Response header carrying the MD5 checksum (32-char lowercase hex) of a downloaded chunk. */
+    public final static String HEADER_X_BD_MD5 = "X-BD-MD5";
+
     /**
      * Number of original binary bytes accumulated before a chunk boundary is created during an asynchronous chunked download.
      * <p>
