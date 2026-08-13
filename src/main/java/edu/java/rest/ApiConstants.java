@@ -3,22 +3,18 @@ package edu.java.rest;
 import edu.java.application.Constants;
 
 /**
- * Constants for JAX-RS REST endpoints: HTTP response-header names, URL path segments, and
- * the chunk-size tuning value.
+ * Constants for JAX-RS REST endpoints: HTTP response-header names, URL path segments, and the chunk-size tuning value.
  *
  * <p>
- * Application-wide metadata (display name, version, GitHub URL, config-property keys, and
- * file-name suffixes) live in {@link Constants}. Only REST-layer concerns belong here.
+ * Application-wide metadata (display name, version, GitHub URL, config-property keys, and file-name suffixes) live in
+ * {@link Constants}. Only REST-layer concerns belong here.
  * </p>
  */
 public final class ApiConstants {
 
-    /** Application short-code used in the Basic-auth credential ({@code BD:1.0.0}). */
-    public static final String APPLICATON = "BD";
-
     /**
-     * JAX-RS {@code @ApplicationPath} value — delegates to {@link Constants#API_BASE} so the
-     * path is defined in exactly one place.
+     * JAX-RS {@code @ApplicationPath} value — delegates to {@link Constants#API_BASE} so the path is defined in exactly one
+     * place.
      */
     public static final String RESOURCE_API_APPLICATON = Constants.API_BASE;
 
@@ -53,20 +49,18 @@ public final class ApiConstants {
     public static final String HEADER_X_BD_SHA256 = "X-BD-SHA256";
 
     /**
-     * Number of original binary bytes accumulated before a chunk boundary is created during an
-     * asynchronous chunked download.
+     * Number of original binary bytes accumulated before a chunk boundary is created during an asynchronous chunked download.
      * <p>
-     * Once this many raw bytes have been read from the remote resource, the accumulated bytes are
-     * Base64-encoded and stored as one chunk entry. The resulting Base64 text for a full chunk
-     * will be approximately 37&nbsp;% larger than the source binary (~&nbsp;1.37&nbsp;MB of text
-     * per 1&nbsp;MB of binary). The last chunk of any download is allowed to be smaller.
+     * Once this many raw bytes have been read from the remote resource, the accumulated bytes are Base64-encoded and stored as
+     * one chunk entry. The resulting Base64 text for a full chunk will be approximately 37&nbsp;% larger than the source binary
+     * (~&nbsp;1.37&nbsp;MB of text per 1&nbsp;MB of binary). The last chunk of any download is allowed to be smaller.
      * </p>
      */
-    // Smaller value for testing; restore to 1_048_576 for production.
-    public static final int CHUNK_SIZE_BYTES = 1 << 16;
-    // public static final int CHUNK_SIZE_BYTES = 1_048_576;
+    public static final int CHUNK_SIZE_BYTES = 1 << 18;
 
-    // Private constructor — utility class, never instantiated.
+    /**
+     * Hidden constructor.
+     */
     private ApiConstants() {
     }
 

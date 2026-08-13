@@ -5,6 +5,8 @@ import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.ejb.Stateless;
 import javax.inject.Inject;
@@ -37,6 +39,7 @@ import edu.java.service.ChunkedDownloadService;
 import edu.java.service.DownloadChunk;
 import edu.java.service.DownloadTask;
 import edu.java.service.DownloadTaskRegistry;
+import edu.java.service.HtmlService;
 
 /**
  * JAX-RS controller for the asynchronous chunked download workflow.
@@ -44,20 +47,27 @@ import edu.java.service.DownloadTaskRegistry;
  * Mapped to {@code /api/download}, this controller provides:
  * </p>
  * <ul>
- * <li>{@link #showSubmitForm} — {@code GET /api/download} — HTML form for URL submission.</li>
- * <li>{@link #submitDownload} — {@code POST /api/download} — validates, registers, and fires the async download; returns HTTP
- * 202 with the task UUID.</li>
- * <li>{@link #getDownloadStatus} — {@code GET /api/download/{uuid}} — status page with chunk links and reassembly instructions
- * once the download is complete.</li>
+ * <li>{@link #showSubmitForm} &mdash; {@code GET /api/download} &mdash; HTML form for URL submission.</li>
+ * <li>{@link #submitDownload} &mdash; {@code POST /api/download} &mdash; validates, registers, and fires the async download;
+ * returns HTTP 202 with the task UUID.</li>
+ * <li>{@link #getDownloadStatus} &mdash; {@code GET /api/download/{uuid}} &mdash; status page with chunk links and
+ * reassembly instructions once the download is complete.</li>
+ * <li>{@link #getDownloadChunk} &mdash; {@code GET /api/download/{uuid}/{index}} &mdash; single chunk as a downloadable
+ * {@code text/plain} file.</li>
+ * <li>{@link #listDownloads} &mdash; {@code GET /api/download/list} &mdash; overview of all active tasks.</li>
  * </ul>
  * <p>
- * The GET → POST split exists because URLs can exceed typical query-string length limits (2 000–8 192 characters). Submitting
- * via a {@code <textarea>} in a POST body bypasses those limits entirely.
+ * The GET &rarr; POST split exists because URLs can exceed typical query-string length limits (2&nbsp;000&ndash;8&nbsp;192
+ * characters). Submitting via a {@code <textarea>} in a POST body bypasses those limits entirely.
  * </p>
  * <p>
- * {@code @Stateless} is used (not {@code @Singleton}) so the EJB container can serve concurrent requests from a pool of
- * instances without serialising access via the default write-lock that {@code @Singleton} would impose. This controller holds
- * no mutable instance state.
+ * Authentication is enforced by the JAX-RS {@code AuthFilter} before any method is invoked; no
+ * per-method credential check is needed. HTML page chrome is provided by {@link HtmlService}.
+ * </p>
+ * <p>
+ * {@code @Stateless} is used (not {@code @Singleton}) so the EJB container can serve concurrent requests
+ * from a pool of instances without serialising access via the default write-lock that {@code @Singleton}
+ * would impose. This controller holds no mutable instance state.
  * </p>
  */
 @Tag(name = "Async Download WebServices", description = "Asynchronous chunked Base64 download WebServices.")
@@ -74,19 +84,23 @@ public class DownloadAsyncController {
     @Inject
     private edu.java.service.ChunkStorageService chunkStorageService;
 
+    @Inject
+    private HtmlService htmlService;
+
+    // -------------------------------------------------------------------------
+    // GET /api/download — submit form
+    // -------------------------------------------------------------------------
+
     /**
-     * Returns an HTML form that lets a browser user submit a download URL without a separate HTTP client.
-     * <p>
-     * No authentication is required to view the form; credentials are validated at submit time by {@link #submitDownload}.
-     * </p>
+     * Returns an HTML form that lets a browser user submit a download URL.
      *
      * @return 200 OK with a {@code text/html} submit form
      */
     //@formatter:off
 	@Operation(
 		summary = "Download submit form",
-		description = "Returns an HTML form for submitting a download URL. No authentication is required to view the form; "
-				+ "credentials are validated at submit time (POST).")
+		description = "Returns an HTML form for submitting a download URL. Authentication is handled by "
+				+ "the AuthFilter before this method is reached.")
 	@APIResponses(value = {
 		@APIResponse(
 			responseCode = "200",
@@ -97,32 +111,35 @@ public class DownloadAsyncController {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public Response showSubmitForm() {
-        final String html = "<!DOCTYPE html>" + "<html><head><title>" + Constants.APP_DISPLAY_NAME
-                + " &mdash; Submit</title></head>" + "<body>" + "<h2>" + Constants.APP_DISPLAY_NAME + "</h2>"
-                + "<p>Paste the <code>http://</code>, <code>https://</code>, or <code>ftp://</code> URL of the file "
-                + "you want to download, enter your API key, then click <em>Download</em>.</p>"
-                + "<form method=\"POST\" action=\"" + Constants.CONTEXT_ROOT + "/" + Constants.API_BASE + "/"
-                + ApiConstants.RESOURCE_API_DOWNLOAD + "\">" + "<table>" + "<tr><td><label for=\"url\">URL:</label></td>"
-                + "<td><textarea id=\"url\" name=\"url\" rows=\"4\" cols=\"80\"></textarea></td></tr>"
-                + "<tr><td><label for=\"apikey\">API key:</label></td>"
-                + "<td><input id=\"apikey\" name=\"apikey\" type=\"text\" size=\"40\" /></td></tr>"
-                + "<tr><td></td><td><input type=\"submit\" value=\"Download\" /></td></tr>" + "</table>" + "</form>"
-                + "</body></html>";
-        return Response.ok(html)
-                .build();
+        final String action = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
+                + "/" + ApiConstants.RESOURCE_API_DOWNLOAD;
+        final String listLink = action + "/list";
+        final String body = "<h2>Submit Download</h2>"
+                + "<p>Paste a <code>http://</code>, <code>https://</code>, or <code>ftp://</code> URL "
+                + "and click <em>Download</em> to start a chunked Base64 download in the background.</p>"
+                + "<form method=\"POST\" action=\"" + action + "\">"
+                + "<table>"
+                + "<tr><td><label for=\"url\">URL:</label></td>"
+                + "<td><textarea id=\"url\" name=\"url\" rows=\"4\" cols=\"70\"></textarea></td></tr>"
+                + "<tr><td></td><td><input type=\"submit\" value=\"Download\" /></td></tr>"
+                + "</table>"
+                + "</form>"
+                + "<p><a href=\"" + listLink + "\">View all active downloads &rsaquo;</a></p>";
+        return Response.ok(htmlService.page("Submit Download", body)).build();
     }
 
+    // -------------------------------------------------------------------------
+    // POST /api/download — accept URL, start async download
+    // -------------------------------------------------------------------------
+
     /**
-     * Validates the submitted URL, registers a new {@link DownloadTask}, fires the asynchronous download via
-     * {@link ChunkedDownloadService}, and returns HTTP 202 Accepted.
+     * Validates the submitted URL, registers a new {@link DownloadTask}, fires the asynchronous download,
+     * and returns HTTP 202 Accepted.
      * <p>
-     * Authentication is enforced by the JAX-RS {@code AuthFilter} before this method is invoked. The download runs in a
-     * background EJB-managed thread; the response is returned immediately with the task UUID so the caller can poll
-     * {@link #getDownloadStatus} for progress.
+     * Authentication is enforced by the JAX-RS {@code AuthFilter} before this method is invoked.
      * </p>
      *
-     * @param apikey optional API key form parameter — threaded into status links so the browser can follow them without
-     *               re-entering credentials; not used for auth here
+     * @param apikey optional API key form parameter &mdash; threaded into status links; not used for auth here
      * @param url    the {@code http://}, {@code https://}, or {@code ftp://} URL to download
      * @return 202 Accepted with UUID and status link, 400 for invalid input
      */
@@ -130,24 +147,15 @@ public class DownloadAsyncController {
 	@Operation(
 		summary = "Submit download",
 		description = "Validates the submitted URL, registers a new asynchronous download task, and returns HTTP 202 "
-				+ "with the task UUID and a link to the status page. The download runs in the background; "
-				+ "poll the status endpoint until status is DONE.")
+				+ "with the task UUID and a link to the status page.")
 	@APIResponses(value = {
 		@APIResponse(
 			responseCode = "202",
-			description = "Download task accepted and started. Response header X-BD-UUID contains the task UUID.",
+			description = "Download task accepted and started.",
 			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class))),
 		@APIResponse(
 			responseCode = "400",
 			description = "Bad request — URL is blank or not a valid http/https/ftp URL.",
-			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class))),
-		@APIResponse(
-			responseCode = "401",
-			description = "Unauthorized — no valid Basic or Bearer authentication was provided.",
-			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class))),
-		@APIResponse(
-			responseCode = "500",
-			description = "Internal server error.",
 			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class)))
 	})
 	@SecurityRequirements(value = {
@@ -158,96 +166,83 @@ public class DownloadAsyncController {
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Produces(MediaType.TEXT_HTML)
     public Response submitDownload(
-            @Parameter(name = "Authorization", description = "Optional Basic or Bearer Authorization header for programmatic callers", in = ParameterIn.HEADER, required = false, hidden = true, schema = @Schema(implementation = String.class)) @HeaderParam("Authorization") final String authString,
-            @Parameter(name = "apikey", description = "API key (alternative to Authorization header)", in = ParameterIn.QUERY, required = false, schema = @Schema(implementation = String.class)) @FormParam("apikey") final String apikey,
+            @Parameter(name = "Authorization", description = "Optional Basic or Bearer Authorization header", in = ParameterIn.HEADER, required = false, hidden = true, schema = @Schema(implementation = String.class)) @HeaderParam("Authorization") final String authString,
+            @Parameter(name = "apikey", description = "API key (threaded into status links)", in = ParameterIn.QUERY, required = false, schema = @Schema(implementation = String.class)) @FormParam("apikey") final String apikey,
             @Parameter(name = "url", description = "The http://, https://, or ftp:// URL of the resource to download", in = ParameterIn.QUERY, required = true, schema = @Schema(implementation = String.class)) @FormParam("url") final String url) {
 
-        // Validate that a URL was supplied
         if (url == null || url.trim().isEmpty()) {
             return Response.status(Status.BAD_REQUEST)
-                    .entity("<html><body><p>400 Bad Request — URL must not be blank.</p></body></html>")
+                    .entity(htmlService.errorPage(400, "URL must not be blank."))
                     .build();
         }
 
-        // Validate URL format and protocol
         final URL parsedUrl;
         try {
             parsedUrl = new URL(url.trim());
         } catch (MalformedURLException e) {
             return Response.status(Status.BAD_REQUEST)
-                    .entity("<html><body><p>400 Bad Request — Not a valid URL: " + e.getMessage() + "</p></body></html>")
+                    .entity(htmlService.errorPage(400, "Not a valid URL: " + e.getMessage()))
                     .build();
         }
         final String protocol = parsedUrl.getProtocol();
         if (!"http".equals(protocol) && !"https".equals(protocol) && !"ftp".equals(protocol)) {
             return Response.status(Status.BAD_REQUEST)
-                    .entity("<html><body><p>400 Bad Request — Unsupported protocol '"
-                            + protocol + "'. Only http, https, and ftp are accepted.</p></body></html>")
+                    .entity(htmlService.errorPage(400,
+                            "Unsupported protocol '" + protocol + "'. Only http, https, and ftp are accepted."))
                     .build();
         }
 
-        // Derive filename from URL path
         final String fileName = new File(parsedUrl.getPath()).getName();
-
-        // Register the task and fire the async download
         final DownloadTask task = new DownloadTask(url.trim(), fileName);
         registry.register(task);
         chunkedDownloadService.startDownload(task);
 
         final String uuid = task.getUuid();
-        final String statusLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE + "/" + ApiConstants.RESOURCE_API_DOWNLOAD
-                + "/" + uuid;
-        //@formatter:off
-		final String html = "<!DOCTYPE html>"
-				+ "<html><head><title>Download submitted</title></head>"
-				+ "<body>"
-				+ "<h2>Download submitted</h2>"
-				+ "<table>"
-				+ "<tr><td><strong>URL:</strong></td><td>" + url.trim() + "</td></tr>"
-				+ "<tr><td><strong>UUID:</strong></td><td>" + uuid + "</td></tr>"
-				+ "<tr><td><strong>Status:</strong></td>"
-				+ "<td><a href=\"" + statusLink + "\">" + statusLink + "</a></td></tr>"
-				+ "</table>"
-				+ "<p>Reload the status page to check progress.</p>"
-				+ "</body></html>";
-		return Response.accepted(html)
-				.header(ApiConstants.HEADER_X_BD_UUID, uuid)
-				.build();
-		//@formatter:on
+        final String statusLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
+                + "/" + ApiConstants.RESOURCE_API_DOWNLOAD + "/" + uuid;
+
+        final List<String[]> rows = new ArrayList<>();
+        rows.add(new String[]{"URL", HtmlService.esc(url.trim())});
+        rows.add(new String[]{"UUID", HtmlService.esc(uuid)});
+        rows.add(new String[]{"Status", "<a href=\"" + statusLink + "\">" + statusLink + "</a>"});
+
+        final String body = "<h2>Download Submitted</h2>"
+                + htmlService.table(new String[]{"Field", "Value"}, rows)
+                + "<p>Reload the status page to check progress.</p>";
+
+        return Response.accepted(htmlService.page("Download Submitted", body))
+                .header(ApiConstants.HEADER_X_BD_UUID, uuid)
+                .build();
     }
+
+    // -------------------------------------------------------------------------
+    // GET /api/download/{uuid} — status page
+    // -------------------------------------------------------------------------
 
     /**
      * Returns an HTML status page for the download task identified by {@code uuid}.
      * <p>
-     * Authentication is enforced by the JAX-RS {@code AuthFilter} before this method is invoked. The page content varies by
-     * {@link DownloadTask.Status}:
+     * Authentication is enforced by the JAX-RS {@code AuthFilter} before this method is invoked.
      * </p>
      * <ul>
-     * <li>{@code PENDING} / {@code IN_PROGRESS} — progress notice with current chunk count.</li>
-     * <li>{@code DONE} — numbered list of chunk links, an "Open all chunk tabs" button, and reassembly instructions for Windows
-     * ({@code certutil}) and Linux/macOS ({@code base64 -d}).</li>
-     * <li>{@code FAILED} — the error message from {@link DownloadTask#getErrorMessage()}.</li>
+     * <li>{@code PENDING} / {@code IN_PROGRESS} &mdash; progress notice; page auto-refreshes every 5 s.</li>
+     * <li>{@code DONE} &mdash; chunk table with checksums, reassembly instructions, copy buttons.</li>
+     * <li>{@code FAILED} &mdash; error message.</li>
      * </ul>
      *
      * @param uuid       UUID of the download task
-     * @param authString optional {@code Authorization} header value — used as fallback for the credential suffix appended to
-     *                   chunk links; not used for auth here
-     * @param apikey     optional API key query parameter — threaded into chunk links; not used for auth here
+     * @param authString optional {@code Authorization} header value &mdash; used as fallback for chunk link suffix
+     * @param apikey     optional API key query parameter &mdash; threaded into chunk links
      * @return 200 OK with status page, 404 if UUID not found
      */
     //@formatter:off
 	@Operation(
 		summary = "Download status",
-		description = "Returns an HTML page showing the current status of a download task. "
-				+ "When DONE, lists all chunk download links and provides reassembly instructions for Windows and Linux/macOS.")
+		description = "Returns an HTML page showing the current status of a download task.")
 	@APIResponses(value = {
 		@APIResponse(
 			responseCode = "200",
 			description = "Status page returned successfully.",
-			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class))),
-		@APIResponse(
-			responseCode = "401",
-			description = "Unauthorized — no valid Basic or Bearer authentication was provided.",
 			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class))),
 		@APIResponse(
 			responseCode = "404",
@@ -266,233 +261,186 @@ public class DownloadAsyncController {
             @Parameter(name = "Authorization", description = "Optional Basic or Bearer Authorization header", in = ParameterIn.HEADER, required = false, hidden = true, schema = @Schema(implementation = String.class)) @HeaderParam("Authorization") final String authString,
             @Parameter(name = "apikey", description = "API key (alternative to Authorization header)", in = ParameterIn.QUERY, required = false, schema = @Schema(implementation = String.class)) @QueryParam("apikey") final String apikey) {
 
-        // Look up task
         final DownloadTask task = registry.retrieve(uuid);
         if (task == null) {
             return Response.status(Status.NOT_FOUND)
-                    .entity("<html><body><p>404 Not Found &mdash; no download task with UUID: " + uuid + "</p></body></html>")
+                    .entity(htmlService.errorPage(404, "No download task with UUID: " + uuid))
                     .build();
         }
 
         final String name = task.getOriginalFileName();
         final DownloadTask.Status status = task.getStatus();
         final int chunkCount = task.getNumberOfChunks();
-        final StringBuilder sb = new StringBuilder();
+        final String chunkDir = chunkStorageService.getTaskDirectory(uuid).toString();
 
-        sb.append("<!DOCTYPE html><html><head><title>Download Status &mdash; ").append(uuid).append("</title>");
-
-        // Embed page-level JS only when DONE:
-        // openLinks() — opens every chunk link in a new tab
-        // copyCmd(el) — reads the command from el.dataset.cmd, copies it to the clipboard,
-        // and briefly shows a checkmark. The command is stored in data-cmd=""
-        // so no JS string escaping is needed regardless of the path content.
-        if (status == DownloadTask.Status.DONE) {
-        sb.append("<script>")
-          .append("function openLinks(){")
-          .append("var links=document.getElementsByTagName('a');")
-          .append("for(var i=0;i<links.length;i++){")
-          .append("window.open(links[i].getAttribute('href'),'_blank');")
-          .append("window.focus();")
-          .append("}")
-          .append("}")
-          .append("function copyCmd(el){")
-          .append("navigator.clipboard.writeText(el.dataset.cmd).then(function(){")
-          .append("var prev=el.textContent;")
-          .append("el.textContent='\\u2713';")
-          .append("setTimeout(function(){el.textContent=prev;},1200);")
-          .append("});")
-          .append("}")
-          .append("</script>");
+        // ── Credential suffix for chunk links ────────────────────────────────
+        String credSuffix = "";
+        if (apikey != null) {
+            credSuffix = "?apikey=" + apikey;
+        } else if (authString != null) {
+            try {
+                credSuffix = "?apikey=" + URLEncoder.encode(authString, "UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                // UTF-8 always supported
+            }
         }
 
-        sb.append("</head><body>");
-        sb.append("<h2>Download Status</h2>");
-
-        // Request details table
-        // Chunk directory is always shown (even before DONE) so the user can prepare a terminal.
-        final String chunkDir = chunkStorageService.getTaskDirectory(uuid).toString();
-        // Commands are stored in data-cmd="" HTML attributes so no JS string escaping is needed.
-        // The command text is HTML-encoded (& → &amp;, " → &quot;) before going into the attribute.
-        final String cdCmd = "cd " + chunkDir; // same command for both platforms; no quoting needed when pasting into a
-                                               // terminal
-        final String btnStyleMeta = "border:none;background:none;cursor:pointer;font-size:0.9em;padding:0 2px;";
-        sb.append("<table>");
-        sb.append("<tr><td><strong>UUID:</strong></td><td>").append(uuid).append("</td></tr>");
-        sb.append("<tr><td><strong>URL:</strong></td><td>").append(task.getRequestedUrl()).append("</td></tr>");
-        sb.append("<tr><td><strong>File:</strong></td><td>").append(name).append("</td></tr>");
-        sb.append("<tr><td><strong>Submitted:</strong></td><td>").append(task.getSubmittedAt()).append("</td></tr>");
-        sb.append("<tr><td><strong>Expires:</strong></td><td>").append(task.getExpiresAt()).append("</td></tr>");
-        sb.append("<tr><td><strong>Status:</strong></td><td>").append(status).append("</td></tr>");
-        sb.append("<tr><td><strong>Chunk&nbsp;directory:</strong></td><td><code>").append(chunkDir).append("</code>")
-                .append("&thinsp;<button style=\"").append(btnStyleMeta).append("\" data-cmd=\"").append(ha(cdCmd)).append("\"")
-                .append(" title=\"Click to copy: ").append(ha(cdCmd))
-                .append("\" onclick=\"copyCmd(this)\">[&#x229e;&#x1f427;]</button>").append("</td></tr>");
-        sb.append("</table>");
-
-        // Status-specific section
+        // ── Extra <head> content ─────────────────────────────────────────────
+        final StringBuilder extraHead = new StringBuilder();
         if (status == DownloadTask.Status.PENDING || status == DownloadTask.Status.IN_PROGRESS) {
-            sb.append("<p>&#9203; Download is running &mdash; ").append(chunkCount)
-                    .append(" chunk(s) produced so far. Reload this page to check progress.</p>");
+            // Auto-refresh every 5 seconds — no JavaScript needed
+            extraHead.append("<meta http-equiv=\"refresh\" content=\"5\">");
+        }
+        if (status == DownloadTask.Status.DONE) {
+            // Minimal JS: openLinks() opens all chunk tabs; copyCmd(el) copies data-cmd to clipboard
+            extraHead.append("<script>")
+                .append("function openLinks(){")
+                .append("var links=document.querySelectorAll('a.chunk-link');")
+                .append("for(var i=0;i<links.length;i++){window.open(links[i].href,'_blank');}")
+                .append("}")
+                .append("function copyCmd(el){")
+                .append("navigator.clipboard.writeText(el.dataset.cmd).then(function(){")
+                .append("var prev=el.textContent;el.textContent='\\u2713';")
+                .append("setTimeout(function(){el.textContent=prev;},1200);")
+                .append("});}")
+                .append("</script>");
+        }
+
+        // ── Details table ────────────────────────────────────────────────────
+        final List<String[]> details = new ArrayList<>();
+        details.add(new String[]{"UUID", HtmlService.esc(uuid)});
+        details.add(new String[]{"URL", HtmlService.esc(task.getRequestedUrl())});
+        details.add(new String[]{"File", HtmlService.esc(name)});
+        details.add(new String[]{"Submitted", HtmlService.esc(task.getSubmittedAt().toString())});
+        details.add(new String[]{"Expires", HtmlService.esc(task.getExpiresAt().toString())});
+        details.add(new String[]{"Status", htmlService.statusBadge(status)});
+        final String cdCmd = "cd " + chunkDir;
+        details.add(new String[]{"Chunk&nbsp;directory",
+                "<code>" + HtmlService.esc(chunkDir) + "</code>"
+                + "&thinsp;<button class=\"btn-copy\" data-cmd=\"" + HtmlService.escAttr(cdCmd) + "\""
+                + " onclick=\"copyCmd(this)\" title=\"" + HtmlService.escAttr(cdCmd) + "\">&#x229e;</button>"});
+
+        final StringBuilder body = new StringBuilder();
+        body.append("<h2>Download Status</h2>");
+        body.append(htmlService.table(new String[]{"Field", "Value"}, details));
+
+        // ── Status-specific section ──────────────────────────────────────────
+        if (status == DownloadTask.Status.PENDING || status == DownloadTask.Status.IN_PROGRESS) {
+            body.append("<p>&#9203; Download is running &mdash; ")
+                .append(chunkCount).append(" chunk(s) so far. ")
+                .append("This page refreshes automatically every 5 seconds.</p>");
 
         } else if (status == DownloadTask.Status.DONE) {
-            // Append ?apikey=... to every chunk link so the browser can follow them without
-            // re-entering credentials. Prefer the apikey query param as-is; fall back to the
-            // Authorization header value (which authenticate() also accepts in full "Bearer …"
-            // or "Basic …" form). The header value must be URL-encoded because it contains
-            // spaces and '=' padding characters.
-            String credSuffix = "";
-            if (apikey != null) {
-                credSuffix = "?apikey=" + apikey;
-            } else if (authString != null) {
-                try {
-                    credSuffix = "?apikey=" + URLEncoder.encode(authString, "UTF-8");
-                } catch (UnsupportedEncodingException e) {
-                    // UTF-8 is always supported; never reached
-                }
-            }
 
-            // Button style reused throughout the DONE section
-            final String btnStyle = "border:none;background:none;cursor:pointer;font-size:0.9em;padding:0 2px;";
+            // Chunk table
+            body.append("<h3>Chunks</h3>");
+            body.append("<p><button onclick=\"openLinks()\">Open all chunks in new tabs</button>"
+                    + " <small>(browsers may block pop-ups)</small></p>");
 
-            sb.append("<h3>Chunks</h3>");
-            sb.append(
-                    "<p><small>Click [&#x229e;] to copy the Windows command or [&#x1f427;] to copy the Linux/macOS command to the clipboard.</small></p>");
-            sb.append("<ol>");
+            final List<String[]> chunkRows = new ArrayList<>();
+            final String btnStyle = "class=\"btn-copy\"";
             for (int i = 1; i <= chunkCount; i++) {
-                final String chunkLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE + "/"
-                        + ApiConstants.RESOURCE_API_DOWNLOAD + "/" + uuid + "/" + i + credSuffix;
+                final String chunkLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
+                        + "/" + ApiConstants.RESOURCE_API_DOWNLOAD + "/" + uuid + "/" + i + credSuffix;
                 final String chunkFile = name + "." + i + Constants.CHUNK_FILE_EXTENSION;
                 final DownloadChunk chunk = task.getDownloadChunk(i - 1);
-                sb.append("<li>");
-                sb.append("<a href=\"").append(chunkLink).append("\">").append(chunkFile).append("</a>");
+
+                // SHA-256 cell with copy buttons
+                String sha256Cell = "";
+                String md5Cell = "";
+                String crc32Cell = "";
                 if (chunk != null) {
-                    // Commands stored in data-cmd="" — no JS string escaping needed for any path content.
                     final String sha256Win = "certutil -hashfile " + chunkFile + " SHA256";
                     final String sha256Lin = "sha256sum " + chunkFile;
-                    sb.append(" &nbsp;|&nbsp; SHA-256:&nbsp;<code>").append(chunk.getSha256Hex()).append("</code>")
-                            .append("&thinsp;[<button style=\"").append(btnStyle).append("\" data-cmd=\"").append(ha(sha256Win))
-                            .append("\"").append(" title=\"").append(ha(sha256Win))
-                            .append("\" onclick=\"copyCmd(this)\">&#x229e;</button>").append("<button style=\"")
-                            .append(btnStyle).append("\" data-cmd=\"").append(ha(sha256Lin)).append("\"").append(" title=\"")
-                            .append(ha(sha256Lin)).append("\" onclick=\"copyCmd(this)\">&#x1f427;</button>]");
+                    sha256Cell = "<code>" + chunk.getSha256Hex() + "</code>"
+                            + "&thinsp;<button " + btnStyle + " data-cmd=\"" + HtmlService.escAttr(sha256Win) + "\""
+                            + " onclick=\"copyCmd(this)\" title=\"certutil\">&#x229e;</button>"
+                            + "<button " + btnStyle + " data-cmd=\"" + HtmlService.escAttr(sha256Lin) + "\""
+                            + " onclick=\"copyCmd(this)\" title=\"sha256sum\">&#x1f427;</button>";
+
                     final String md5Win = "certutil -hashfile " + chunkFile + " MD5";
                     final String md5Lin = "md5sum " + chunkFile;
-                    sb.append(" &nbsp;|&nbsp; MD5:&nbsp;<code>").append(chunk.getMd5Hex()).append("</code>")
-                            .append("&thinsp;[<button style=\"").append(btnStyle).append("\" data-cmd=\"").append(ha(md5Win))
-                            .append("\"").append(" title=\"").append(ha(md5Win))
-                            .append("\" onclick=\"copyCmd(this)\">&#x229e;</button>").append("<button style=\"")
-                            .append(btnStyle).append("\" data-cmd=\"").append(ha(md5Lin)).append("\"").append(" title=\"")
-                            .append(ha(md5Lin)).append("\" onclick=\"copyCmd(this)\">&#x1f427;</button>]");
+                    md5Cell = "<code>" + chunk.getMd5Hex() + "</code>"
+                            + "&thinsp;<button " + btnStyle + " data-cmd=\"" + HtmlService.escAttr(md5Win) + "\""
+                            + " onclick=\"copyCmd(this)\" title=\"certutil MD5\">&#x229e;</button>"
+                            + "<button " + btnStyle + " data-cmd=\"" + HtmlService.escAttr(md5Lin) + "\""
+                            + " onclick=\"copyCmd(this)\" title=\"md5sum\">&#x1f427;</button>";
+
                     final String crc32Lin = "cksum " + chunkFile;
-                    sb.append(" &nbsp;|&nbsp; CRC32:&nbsp;<code>").append(chunk.getCrc32Hex()).append("</code>")
-                            .append("&thinsp;[<button style=\"").append(btnStyle).append("\" data-cmd=\"").append(ha(crc32Lin))
-                            .append("\"").append(" title=\"").append(ha(crc32Lin))
-                            .append(" (decimal output; certutil does not support CRC32)\"")
-                            .append(" onclick=\"copyCmd(this)\">&#x1f427;</button>]");
+                    crc32Cell = "<code>" + chunk.getCrc32Hex() + "</code>"
+                            + "&thinsp;<button " + btnStyle + " data-cmd=\"" + HtmlService.escAttr(crc32Lin) + "\""
+                            + " onclick=\"copyCmd(this)\" title=\"cksum\">&#x1f427;</button>";
                 }
-                sb.append("</li>");
+
+                chunkRows.add(new String[]{
+                        String.valueOf(i),
+                        "<a class=\"chunk-link\" href=\"" + chunkLink + "\">" + HtmlService.esc(chunkFile) + "</a>",
+                        sha256Cell,
+                        md5Cell,
+                        crc32Cell
+                });
             }
-            sb.append("</ol>");
+            body.append(htmlService.table(
+                    new String[]{"#", "Filename", "SHA-256", "MD5", "CRC32"},
+                    chunkRows));
 
-            // Open all chunks button — browsers may block the resulting pop-ups
-            sb.append("<p><button onclick=\"openLinks()\">Open all chunk tabs</button>")
-                    .append(" <small>(browsers may block pop-ups)</small></p>");
-
-            // Reassembly instructions — Windows
-            sb.append("<h3>Reassembly &mdash; Windows</h3>");
+            // Reassembly — Windows
+            body.append("<h3>Reassembly &mdash; Windows</h3>");
             final StringBuilder copyCmd = new StringBuilder("copy /b ");
             for (int i = 1; i <= chunkCount; i++) {
-                if (i > 1)
-                    copyCmd.append(" + ");
+                if (i > 1) copyCmd.append(" + ");
                 copyCmd.append(name).append(".").append(i).append(Constants.CHUNK_FILE_EXTENSION);
             }
             copyCmd.append(" ").append(name).append(Constants.CHUNK_FILE_EXTENSION);
-            final String copyCmdStr = copyCmd.toString();
             final String certutilCmd = "certutil -decode " + name + Constants.CHUNK_FILE_EXTENSION + " " + name;
-            // Wrap each <pre>+button in a flex row so the button sits inline to the right of the command text.
-            // <pre> is a block element; without the wrapper it pushes the button to the next line.
-            final String rowStyle = "display:flex;align-items:baseline;gap:0.4em;margin:0.3em 0";
-            sb.append("<div style=\"").append(rowStyle).append("\">").append("<pre style=\"margin:0\">").append(copyCmdStr)
-                    .append("</pre>").append("<button style=\"").append(btnStyle).append("\" data-cmd=\"")
-                    .append(ha(copyCmdStr)).append("\"").append(" title=\"").append(ha(copyCmdStr))
-                    .append("\" onclick=\"copyCmd(this)\">[&#x229e;]</button>").append("</div>");
-            sb.append("<div style=\"").append(rowStyle).append("\">").append("<pre style=\"margin:0\">").append(certutilCmd)
-                    .append("</pre>").append("<button style=\"").append(btnStyle).append("\" data-cmd=\"")
-                    .append(ha(certutilCmd)).append("\"").append(" title=\"").append(ha(certutilCmd))
-                    .append("\" onclick=\"copyCmd(this)\">[&#x229e;]</button>").append("</div>");
+            appendCmdRow(body, copyCmd.toString(), "&#x229e;");
+            appendCmdRow(body, certutilCmd, "&#x229e;");
 
-            // Reassembly instructions — Linux / macOS
-            sb.append("<h3>Reassembly &mdash; Linux / macOS</h3>");
+            // Reassembly — Linux / macOS
+            body.append("<h3>Reassembly &mdash; Linux / macOS</h3>");
             final StringBuilder catCmd = new StringBuilder("cat ");
             for (int i = 1; i <= chunkCount; i++) {
-                if (i > 1)
-                    catCmd.append(" ");
+                if (i > 1) catCmd.append(" ");
                 catCmd.append(name).append(".").append(i).append(Constants.CHUNK_FILE_EXTENSION);
             }
             catCmd.append(" > ").append(name).append(Constants.CHUNK_FILE_EXTENSION);
-            final String catCmdStr = catCmd.toString();
             final String base64Cmd = "base64 -d " + name + Constants.CHUNK_FILE_EXTENSION + " > " + name;
-            sb.append("<div style=\"").append(rowStyle).append("\">").append("<pre style=\"margin:0\">").append(catCmdStr)
-                    .append("</pre>").append("<button style=\"").append(btnStyle).append("\" data-cmd=\"").append(ha(catCmdStr))
-                    .append("\"").append(" title=\"").append(ha(catCmdStr))
-                    .append("\" onclick=\"copyCmd(this)\">[&#x1f427;]</button>").append("</div>");
-            sb.append("<div style=\"").append(rowStyle).append("\">").append("<pre style=\"margin:0\">").append(base64Cmd)
-                    .append("</pre>").append("<button style=\"").append(btnStyle).append("\" data-cmd=\"").append(ha(base64Cmd))
-                    .append("\"").append(" title=\"").append(ha(base64Cmd))
-                    .append("\" onclick=\"copyCmd(this)\">[&#x1f427;]</button>").append("</div>");
+            appendCmdRow(body, catCmd.toString(), "&#x1f427;");
+            appendCmdRow(body, base64Cmd, "&#x1f427;");
 
         } else if (status == DownloadTask.Status.FAILED) {
-            sb.append("<p>&#10060; Download failed: ").append(task.getErrorMessage()).append("</p>");
+            body.append("<div class=\"error-box\">&#10060; Download failed: ")
+                .append(HtmlService.esc(task.getErrorMessage())).append("</div>");
         }
 
-        sb.append("</body></html>");
-        return Response.ok(sb.toString())
-                .build();
+        return Response.ok(htmlService.page("Download Status \u2014 " + uuid,
+                body.toString(), extraHead.toString())).build();
     }
 
-    /**
-     * HTML-encodes a string for safe use inside an HTML attribute value (double-quoted). Replaces {@code &} with {@code &amp;}
-     * and {@code "} with {@code &quot;}. Normal filesystem paths (letters, digits, slashes, backslashes, spaces, hyphens, dots)
-     * pass through unchanged, which covers all command strings generated on this page.
-     *
-     * @param s the raw string
-     * @return the HTML-attribute-safe string
-     */
-    private static String ha(final String s) {
-        return s.replace("&", "&amp;").replace("\"", "&quot;");
-    }
+    // -------------------------------------------------------------------------
+    // GET /api/download/{uuid}/{index} — single chunk
+    // -------------------------------------------------------------------------
 
     /**
      * Returns the Base64-encoded content of one chunk as a downloadable {@code text/plain} file.
      * <p>
-     * Authentication is enforced by the JAX-RS {@code AuthFilter} before this method is invoked. The {@code index} parameter is
-     * 1-based (matching the link numbers shown on the status page). It is converted to a 0-based list index internally. A 404
-     * is returned if the index is out of range or the chunk has not yet been produced by the background download.
-     * </p>
-     * <p>
-     * The response includes a {@code Content-Disposition: attachment} header so the browser saves the chunk as
-     * {@code {originalFileName}.{index}.txt} rather than displaying it inline.
+     * Authentication is enforced by the JAX-RS {@code AuthFilter} before this method is invoked.
+     * The {@code index} parameter is 1-based. A 404 is returned if the index is out of range or the
+     * chunk has not yet been produced.
      * </p>
      *
-     * @param uuid       UUID of the download task
-     * @param index      1-based chunk index
-     * @param authString not used for auth; retained as parameter for API compatibility
-     * @param apikey     not used for auth; retained as parameter for API compatibility
-     * @return 200 OK with Base64 text, 404 if task or chunk not found
+     * @param uuid  UUID of the download task
+     * @param index 1-based chunk index
+     * @return 200 OK with Base64 text as attachment, 404 if task or chunk not found
      */
     //@formatter:off
 	@Operation(
 		summary = "Download chunk",
-		description = "Returns the Base64-encoded content of a single chunk as a downloadable text/plain file. "
-				+ "The index is 1-based, matching the link numbers on the status page.")
+		description = "Returns the Base64-encoded content of a single chunk as a downloadable text/plain file.")
 	@APIResponses(value = {
 		@APIResponse(
 			responseCode = "200",
 			description = "Chunk content returned as a downloadable text/plain attachment.",
-			content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(implementation = String.class))),
-		@APIResponse(
-			responseCode = "401",
-			description = "Unauthorized &mdash; no valid Basic or Bearer authentication was provided.",
 			content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(implementation = String.class))),
 		@APIResponse(
 			responseCode = "404",
@@ -512,23 +460,24 @@ public class DownloadAsyncController {
             @Parameter(name = "Authorization", description = "Optional Basic or Bearer Authorization header", in = ParameterIn.HEADER, required = false, hidden = true, schema = @Schema(implementation = String.class)) @HeaderParam("Authorization") final String authString,
             @Parameter(name = "apikey", description = "API key (alternative to Authorization header)", in = ParameterIn.QUERY, required = false, schema = @Schema(implementation = String.class)) @QueryParam("apikey") final String apikey) {
 
-        // Validate index range (1-based public API)
         if (index < 1) {
-            return Response.status(Status.NOT_FOUND).entity("404 Not Found &mdash; chunk index must be >= 1.").build();
-        }
-
-        // Look up task
-        final DownloadTask task = registry.retrieve(uuid);
-        if (task == null) {
-            return Response.status(Status.NOT_FOUND).entity("404 Not Found &mdash; no download task with UUID: " + uuid)
+            return Response.status(Status.NOT_FOUND)
+                    .entity("404 Not Found &mdash; chunk index must be >= 1.")
                     .build();
         }
 
-        // Convert to 0-based and fetch chunk (returns null if not yet available or out of range)
+        final DownloadTask task = registry.retrieve(uuid);
+        if (task == null) {
+            return Response.status(Status.NOT_FOUND)
+                    .entity("404 Not Found &mdash; no download task with UUID: " + uuid)
+                    .build();
+        }
+
         final DownloadChunk downloadChunk = task.getDownloadChunk(index - 1);
         if (downloadChunk == null) {
             return Response.status(Status.NOT_FOUND)
-                    .entity("404 Not Found &mdash; chunk " + index + " is not yet available for UUID: " + uuid).build();
+                    .entity("404 Not Found &mdash; chunk " + index + " is not yet available for UUID: " + uuid)
+                    .build();
         }
 
         final String downloadChunkBase64Content;
@@ -537,7 +486,8 @@ public class DownloadAsyncController {
         } catch (java.io.IOException e) {
             e.printStackTrace();
             return Response.status(Status.INTERNAL_SERVER_ERROR)
-                    .entity("500 Internal Server Error &mdash; chunk file could not be read.").build();
+                    .entity("500 Internal Server Error &mdash; chunk file could not be read.")
+                    .build();
         }
 
         final String filename = task.getOriginalFileName() + "." + index + Constants.CHUNK_FILE_EXTENSION;
@@ -545,35 +495,34 @@ public class DownloadAsyncController {
                 .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
                 .header(ApiConstants.HEADER_X_BD_CRC32, downloadChunk.getCrc32Hex())
                 .header(ApiConstants.HEADER_X_BD_MD5, downloadChunk.getMd5Hex())
-                .header(ApiConstants.HEADER_X_BD_SHA256, downloadChunk.getSha256Hex()).build();
+                .header(ApiConstants.HEADER_X_BD_SHA256, downloadChunk.getSha256Hex())
+                .build();
     }
 
+    // -------------------------------------------------------------------------
+    // GET /api/download/list — task list
+    // -------------------------------------------------------------------------
+
     /**
-     * Returns an HTML overview page listing all download tasks currently held in the registry, each with a clickable link to
-     * its status page.
+     * Returns an HTML overview page listing all download tasks currently in the registry.
      * <p>
-     * Authentication is enforced by the JAX-RS {@code AuthFilter} before this method is invoked. The credential passed to this
-     * page (either {@code apikey} query parameter or {@code Authorization} header) is threaded into every status link so the
-     * user can navigate without re-entering credentials.
+     * Authentication is enforced by the JAX-RS {@code AuthFilter} before this method is invoked.
+     * The credential passed to this page ({@code apikey} or {@code Authorization} header) is
+     * threaded into every status link so the user can navigate without re-entering credentials.
      * </p>
      *
-     * @param authString optional {@code Authorization} header value — used as fallback for link credential suffix
-     * @param apikey     optional API key query parameter — threaded into status links
+     * @param authString optional {@code Authorization} header &mdash; fallback for link credential suffix
+     * @param apikey     optional API key &mdash; threaded into status links
      * @return 200 OK with an HTML task-list page
      */
     //@formatter:off
 	@Operation(
 		summary = "List all download tasks",
-		description = "Returns an HTML overview of all download tasks in the registry, "
-				+ "with links to the individual status pages.")
+		description = "Returns an HTML overview of all download tasks in the registry.")
 	@APIResponses(value = {
 		@APIResponse(
 			responseCode = "200",
 			description = "Task list page returned successfully.",
-			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class))),
-		@APIResponse(
-			responseCode = "401",
-			description = "Unauthorized &mdash; no valid Basic or Bearer authentication was provided.",
 			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class)))
 	})
 	@SecurityRequirements(value = {
@@ -587,7 +536,6 @@ public class DownloadAsyncController {
             @Parameter(name = "Authorization", description = "Optional Basic or Bearer Authorization header", in = ParameterIn.HEADER, required = false, hidden = true, schema = @Schema(implementation = String.class)) @HeaderParam("Authorization") final String authString,
             @Parameter(name = "apikey", description = "API key (alternative to Authorization header)", in = ParameterIn.QUERY, required = false, schema = @Schema(implementation = String.class)) @QueryParam("apikey") final String apikey) {
 
-        // Build credential suffix to carry auth through status page links
         String credSuffix = "";
         if (apikey != null) {
             credSuffix = "?apikey=" + apikey;
@@ -595,48 +543,60 @@ public class DownloadAsyncController {
             try {
                 credSuffix = "?apikey=" + java.net.URLEncoder.encode(authString, "UTF-8");
             } catch (java.io.UnsupportedEncodingException e) {
-                // UTF-8 is always supported; never reached
+                // UTF-8 always supported
             }
         }
 
         final java.util.Collection<DownloadTask> tasks = registry.retrieveAll();
-        final StringBuilder sb = new StringBuilder();
-
-        sb.append("<!DOCTYPE html><html><head><title>").append(Constants.APP_DISPLAY_NAME)
-                .append(" &mdash; Downloads</title></head><body>");
-        sb.append("<h2>Active Download Tasks</h2>");
+        final StringBuilder body = new StringBuilder();
+        body.append("<h2>Active Download Tasks</h2>");
+        body.append("<p><a href=\"" + Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
+                + "/" + ApiConstants.RESOURCE_API_DOWNLOAD + "\">&larr; New download</a></p>");
 
         if (tasks.isEmpty()) {
-            sb.append("<p>No download tasks registered.</p>");
+            body.append("<p>No download tasks registered.</p>");
         } else {
-            sb.append("<table border=\"1\" cellpadding=\"4\" cellspacing=\"0\">");
-			sb.append("<tr>")
-			  .append("<th>UUID</th>")
-			  .append("<th>File</th>")
-			  .append("<th>Status</th>")
-			  .append("<th>Chunks</th>")
-			  .append("<th>Submitted</th>")
-			  .append("<th>Expires</th>")
-			  .append("</tr>");
+            final List<String[]> rows = new ArrayList<>();
             for (final DownloadTask task : tasks) {
-                final String statusLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE + "/"
-                        + ApiConstants.RESOURCE_API_DOWNLOAD + "/" + task.getUuid() + credSuffix;
-                sb.append("<tr>");
-                sb.append("<td><a href=\"").append(statusLink).append("\">").append(task.getUuid()).append("</a></td>");
-                sb.append("<td>").append(task.getOriginalFileName()).append("</td>");
-                sb.append("<td>").append(task.getStatus()).append("</td>");
+                final String statusLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
+                        + "/" + ApiConstants.RESOURCE_API_DOWNLOAD + "/" + task.getUuid() + credSuffix;
                 final int available = task.getNumberOfChunks();
                 final int total = task.getTotalChunks();
-                sb.append("<td>").append(available).append(total >= 0 ? " / " + total : " / ?").append("</td>");
-                sb.append("<td>").append(task.getSubmittedAt()).append("</td>");
-                sb.append("<td>").append(task.getExpiresAt()).append("</td>");
-                sb.append("</tr>");
+                rows.add(new String[]{
+                        "<a href=\"" + statusLink + "\">" + HtmlService.esc(task.getUuid()) + "</a>",
+                        HtmlService.esc(task.getOriginalFileName()),
+                        htmlService.statusBadge(task.getStatus()),
+                        available + (total >= 0 ? " / " + total : " / ?"),
+                        HtmlService.esc(task.getSubmittedAt().toString()),
+                        HtmlService.esc(task.getExpiresAt().toString())
+                });
             }
-            sb.append("</table>");
+            body.append(htmlService.table(
+                    new String[]{"UUID", "File", "Status", "Chunks", "Submitted", "Expires"},
+                    rows));
         }
 
-        sb.append("</body></html>");
-        return Response.ok(sb.toString()).build();
+        return Response.ok(htmlService.page("Active Downloads", body.toString())).build();
+    }
+
+    // -------------------------------------------------------------------------
+    // Private helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Appends a flex-row with a {@code <pre>} command and a copy button to {@code sb}.
+     *
+     * @param sb      the StringBuilder to append to
+     * @param cmd     the shell command to display and copy
+     * @param btnIcon HTML entity for the button label (e.g. {@code &#x229e;} or {@code &#x1f427;})
+     */
+    private static void appendCmdRow(final StringBuilder sb, final String cmd, final String btnIcon) {
+        sb.append("<div class=\"flex-row\">")
+          .append("<pre>").append(HtmlService.esc(cmd)).append("</pre>")
+          .append("<button class=\"btn-copy\" data-cmd=\"").append(HtmlService.escAttr(cmd)).append("\"")
+          .append(" onclick=\"copyCmd(this)\" title=\"").append(HtmlService.escAttr(cmd)).append("\">")
+          .append(btnIcon).append("</button>")
+          .append("</div>");
     }
 
 }

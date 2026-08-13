@@ -31,35 +31,38 @@ import org.slf4j.LoggerFactory;
 import edu.java.application.Constants;
 import edu.java.security.AuthFilter;
 import edu.java.security.CredentialStore;
+import edu.java.service.HtmlService;
 
 /**
  * JAX-RS controller for the login form, session establishment, and logout.
  *
  * <h2>Endpoints</h2>
  * <ul>
- * <li>{@code GET /api/login} — returns an HTML login form. This endpoint is on the {@link AuthFilter} exempt list and therefore
- * reachable without credentials.</li>
- * <li>{@code POST /api/login} — validates the submitted triple (username, password, token) against {@link CredentialStore}. On
- * success it creates an {@link HttpSession}, stores the username under {@link AuthFilter#SESSION_ATTR_USERNAME}, and redirects
- * the browser to the download submission form. On failure it applies the same {@value AuthFilter#BRUTE_FORCE_DELAY_MS} ms delay
- * as {@link AuthFilter} and returns HTTP 401 with the login form again.</li>
- * <li>{@code GET /api/logout} — invalidates the current HTTP session (if any) and returns an HTML confirmation page with a link
- * back to the login form. This endpoint is on the {@link AuthFilter} exempt list so it is reachable even after the session has
- * already expired, making it safe to bookmark and reload. Primarily useful for testing credential changes.</li>
+ * <li>{@code GET /api/login} &mdash; returns an HTML login form. This endpoint is on the {@link AuthFilter} exempt
+ * list and therefore reachable without credentials.</li>
+ * <li>{@code POST /api/login} &mdash; validates the submitted triple (username, password, token) against
+ * {@link CredentialStore}. On success it creates an {@link HttpSession}, stores the username under
+ * {@link AuthFilter#SESSION_ATTR_USERNAME}, and redirects the browser to the download submission form. On failure
+ * it applies the same {@value AuthFilter#BRUTE_FORCE_DELAY_MS} ms delay as {@link AuthFilter} and returns HTTP 401
+ * with the login form again.</li>
+ * <li>{@code GET /api/login/logout} &mdash; invalidates the current HTTP session (if any) and returns an HTML
+ * confirmation page with a link back to the login form. This endpoint is on the {@link AuthFilter} exempt list so
+ * it is reachable even after the session has already expired, making it safe to bookmark. Primarily useful for
+ * testing credential changes.</li>
  * </ul>
  *
  * <h2>Session management</h2>
  * <p>
- * Sessions are created with {@link HttpServletRequest#getSession(boolean) getSession(true)} only after successful credential
- * validation, never before. This prevents session-fixation attacks. The session is invalidated by calling
- * {@code GET /api/logout}, which calls {@link HttpSession#invalidate()}.
+ * Sessions are created with {@link HttpServletRequest#getSession(boolean) getSession(true)} only after successful
+ * credential validation, never before. This prevents session-fixation attacks. The session is invalidated by
+ * calling {@code GET /api/login/logout}, which calls {@link HttpSession#invalidate()}.
  * </p>
  *
  * <h2>Brute-force mitigation</h2>
  * <p>
- * A failed login attempt via this endpoint incurs the same {@value AuthFilter#BRUTE_FORCE_DELAY_MS} ms sleep as a failed filter
- * check, ensuring that attackers who use the HTML form rather than the API are equally rate-limited.
- * The logout endpoint does <em>not</em> apply a delay — it is not a credential check.
+ * A failed login attempt via this endpoint incurs the same {@value AuthFilter#BRUTE_FORCE_DELAY_MS} ms sleep as a
+ * failed filter check, ensuring that attackers who use the HTML form are equally rate-limited. The logout endpoint
+ * does <em>not</em> apply a delay &mdash; it is not a credential check.
  * </p>
  */
 @Tag(name = "Login WebServices", description = "Application login and session management.")
@@ -71,6 +74,9 @@ public class LoginController {
 
     @Inject
     private CredentialStore credentialStore;
+
+    @Inject
+    private HtmlService htmlService;
 
     // -------------------------------------------------------------------------
     // GET /api/login — serve the login form
@@ -93,8 +99,7 @@ public class LoginController {
     @Produces(MediaType.TEXT_HTML)
     public Response showLoginForm(@Parameter(hidden = true) @Context final UriInfo uriInfo) {
         logger.info("GET {}", uriInfo.getRequestUri());
-        return Response.ok(buildLoginForm(null))
-                .build();
+        return Response.ok(buildLoginFormPage(null)).build();
     }
 
     // -------------------------------------------------------------------------
@@ -110,11 +115,16 @@ public class LoginController {
                 + "deliberate delay.")
     @APIResponses(value = {
         @APIResponse(
+            responseCode = "200",
+            description = "Login failed — returns the login form again with an error message.",
+            content = @Content(mediaType = MediaType.TEXT_HTML,
+                    schema = @Schema(implementation = String.class))),
+        @APIResponse(
             responseCode = "303",
             description = "Login successful — redirect to the download submission form."),
         @APIResponse(
             responseCode = "401",
-            description = "Invalid credentials.",
+            description = "Invalid credentials (same body as 200; status signals the failure to programmatic callers).",
             content = @Content(mediaType = MediaType.TEXT_HTML,
                     schema = @Schema(implementation = String.class)))
     })
@@ -131,8 +141,7 @@ public class LoginController {
         logger.info("POST {} user={}", uriInfo.getRequestUri(), username);
 
         if (credentialStore.validateTriple(username, password, token)) {
-            // ── Success: create a NEW session (prevents session fixation) and store username ──
-            // Invalidate any pre-existing session first, then get a fresh one
+            // ── Success: create a NEW session (prevents session fixation) ──
             final HttpSession existing = httpRequest.getSession(false);
             if (existing != null) {
                 existing.invalidate();
@@ -141,28 +150,24 @@ public class LoginController {
             session.setAttribute(AuthFilter.SESSION_ATTR_USERNAME, username);
             logger.info("Login successful for user={}", username);
 
-            // Redirect to the download form
             try {
                 final URI downloadUri = new URI(ApiConstants.RESOURCE_API_DOWNLOAD);
-                return Response.seeOther(downloadUri)
-                        .build();
+                return Response.seeOther(downloadUri).build();
             } catch (URISyntaxException e) {
-                // Should never happen with hardcoded path constants
-                return Response.serverError()
-                        .build();
+                return Response.serverError().build();
             }
         }
 
-        // ── Failure: brute-force delay + 401 with form ──────────────────────────────────────
+        // ── Failure: brute-force delay + 401 with form ──
         logger.warn("Login failed for user={}", username);
         sleepBruteForceDelay();
         return Response.status(Response.Status.UNAUTHORIZED)
-                .entity(buildLoginForm("Invalid username, password, or token. Please try again."))
+                .entity(buildLoginFormPage("Invalid username, password, or token. Please try again."))
                 .build();
     }
 
     // -------------------------------------------------------------------------
-    // GET /api/logout — invalidate session
+    // GET /api/login/logout — invalidate session
     // -------------------------------------------------------------------------
 
     //@formatter:off
@@ -195,14 +200,13 @@ public class LoginController {
             logger.info("Logout: no active session to invalidate");
         }
 
-        final String loginLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE + "/" + ApiConstants.RESOURCE_API_LOGIN;
-        final String html = "<!DOCTYPE html><html><head><title>" + Constants.APP_DISPLAY_NAME + " &mdash; Logged out</title></head>"
-                + "<body>"
-                + "<h2>" + Constants.APP_DISPLAY_NAME + " &mdash; Logged out</h2>"
-                + "<p>You have been logged out. Your session has been invalidated.</p>"
-                + "<p><a href=\"" + loginLink + "\">Log in again</a></p>"
-                + "</body></html>";
-        return Response.ok(html).build();
+        final String loginLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
+                + "/" + ApiConstants.RESOURCE_API_LOGIN;
+        final String body = "<div class=\"success-box\">"
+                + "<strong>Logged out.</strong> Your session has been invalidated."
+                + "</div>"
+                + "<p><a href=\"" + loginLink + "\">Log in again</a></p>";
+        return Response.ok(htmlService.page("Logged Out", body)).build();
     }
 
     // -------------------------------------------------------------------------
@@ -210,39 +214,37 @@ public class LoginController {
     // -------------------------------------------------------------------------
 
     /**
-     * Builds the HTML login form.
+     * Builds the HTML login form page via {@link HtmlService}.
+     * The form submits a username + password + token triple to {@code POST /api/login}.
      *
-     * @param errorMessage an optional error message to display above the form, or {@code null}
-     * @return the complete HTML page as a string
+     * @param errorMessage optional error message shown above the form; {@code null} means no error
+     * @return complete HTML page as a string
      */
-    private String buildLoginForm(final String errorMessage) {
-        final String action = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE + "/" + ApiConstants.RESOURCE_API_LOGIN;
-        final StringBuilder sb = new StringBuilder();
-        sb.append("<!DOCTYPE html><html><head><title>").append(Constants.APP_DISPLAY_NAME)
-                .append(" &mdash; Login</title></head><body>");
-        sb.append("<h2>").append(Constants.APP_DISPLAY_NAME).append(" &mdash; Login</h2>");
+    private String buildLoginFormPage(final String errorMessage) {
+        final String action = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
+                + "/" + ApiConstants.RESOURCE_API_LOGIN;
+        final StringBuilder body = new StringBuilder();
         if (errorMessage != null) {
-            sb.append("<p style=\"color:#cc0000\">").append(errorMessage).append("</p>");
+            body.append("<div class=\"error-box\">").append(HtmlService.esc(errorMessage)).append("</div>");
         }
-        sb.append("<form method=\"POST\" action=\"").append(action).append("\">");
-        sb.append("<table>");
-        sb.append("<tr><td><label for=\"username\">Username:</label></td>")
-                .append("<td><input id=\"username\" name=\"username\" type=\"text\" size=\"30\" /></td></tr>");
-        sb.append("<tr><td><label for=\"password\">Password:</label></td>")
-                .append("<td><input id=\"password\" name=\"password\" type=\"password\" size=\"30\" /></td></tr>");
-        sb.append("<tr><td><label for=\"token\">Token:</label></td>")
-                .append("<td><input id=\"token\" name=\"token\" type=\"text\" size=\"40\" /></td></tr>");
-        sb.append("<tr><td></td><td><input type=\"submit\" value=\"Login\" /></td></tr>");
-        sb.append("</table></form>");
-        sb.append("<p><small>Alternatively, use Basic or Bearer authentication in the "
-                + "<code>Authorization</code> HTTP header for programmatic access.</small></p>");
-        sb.append("</body></html>");
-        return sb.toString();
+        body.append("<form method=\"POST\" action=\"").append(action).append("\">")
+            .append("<table>")
+            .append("<tr><td><label for=\"username\">Username:</label></td>")
+            .append("<td><input id=\"username\" name=\"username\" type=\"text\" size=\"30\" autofocus /></td></tr>")
+            .append("<tr><td><label for=\"password\">Password:</label></td>")
+            .append("<td><input id=\"password\" name=\"password\" type=\"password\" size=\"30\" /></td></tr>")
+            .append("<tr><td><label for=\"token\">Token:</label></td>")
+            .append("<td><input id=\"token\" name=\"token\" type=\"text\" size=\"40\" /></td></tr>")
+            .append("<tr><td></td><td><input type=\"submit\" value=\"Login\" /></td></tr>")
+            .append("</table></form>")
+            .append("<p><small>Alternatively, use Basic or Bearer authentication in the "
+                    + "<code>Authorization</code> HTTP header for programmatic access.</small></p>");
+        return htmlService.page("Login", body.toString());
     }
 
     /**
-     * Sleeps for {@link AuthFilter#BRUTE_FORCE_DELAY_MS} ms. Matches the delay applied by {@link AuthFilter} on filter-level
-     * failures so that attackers who use the HTML form are equally rate-limited.
+     * Sleeps for {@link AuthFilter#BRUTE_FORCE_DELAY_MS} ms. Matches the delay applied by
+     * {@link AuthFilter} on filter-level failures so that form-based attackers are equally rate-limited.
      */
     private void sleepBruteForceDelay() {
         try {

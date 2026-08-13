@@ -30,15 +30,21 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement
 import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirements;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
+import edu.java.service.HtmlService;
 import edu.java.service.StreamDownloadService;
 
 /**
- * JAX-RS controller for the Base64-download endpoint ({@code GET /api/base}).
+ * JAX-RS controller for the legacy single-stream Base64-download endpoint ({@code GET /api/base}).
  * <p>
- * This controller is intentionally thin: authentication is handled by the JAX-RS
- * {@code AuthFilter} before any controller method is invoked; all stream-download /
- * Base64-encoding logic is delegated to {@link StreamDownloadService}.
+ * This controller is intentionally thin: authentication is handled by the JAX-RS {@code AuthFilter}
+ * before any controller method is invoked; all stream-download / Base64-encoding logic is delegated
+ * to {@link StreamDownloadService}; and HTML page chrome is provided by {@link HtmlService}.
  * The controller itself contains only HTTP glue code.
+ * </p>
+ * <p>
+ * {@code @Stateless} is used (not {@code @Singleton}) so the EJB container can serve concurrent
+ * requests from a pool of instances without serialising access via the default write-lock that
+ * {@code @Singleton} would impose. This controller holds no mutable instance state.
  * </p>
  */
 @Tag(name = "Download WebServices", description = "Maven build info WebServices.")
@@ -53,34 +59,29 @@ public class DownloadController {
     @Inject
     private StreamDownloadService streamDownloadService;
 
+    @Inject
+    private HtmlService htmlService;
+
     //@formatter:off
 	@Operation(
-		summary = "Download WebService", 
+		summary = "Download WebService",
 		description = "Download a resource Base64 encoded WebService.")
 	@APIResponses(
 		value = {
 		    @APIResponse(
-		        responseCode = "200", 
-		            description = "Build details successfully retrieved in JSON or text format.",
+		        responseCode = "200",
+		            description = "Resource downloaded and returned as Base64-encoded HTML.",
 		            content = {
 		                @Content(
-		                	mediaType = MediaType.TEXT_HTML, 
+		                	mediaType = MediaType.TEXT_HTML,
 		                	schema = @Schema(implementation = String.class))
 		            }),
 		    @APIResponse(
-	            responseCode = "401", 
-	                description = "Unauthorized, no valid Basic or Bearer (API-key) authentication was provided.",
-	                content = {
-	                    @Content(
-	   	                    mediaType = MediaType.TEXT_HTML, 
-	   	                    schema = @Schema(implementation = String.class))
-	                }),
-		    @APIResponse(
-	            responseCode = "500", 
+	            responseCode = "500",
 	                description = "Internal server error while downloading resource Base64 encoded.",
 	                content = {
 	                    @Content(
-	                    		mediaType = MediaType.TEXT_HTML, 
+	                    		mediaType = MediaType.TEXT_HTML,
 	                    		schema = @Schema(implementation = String.class))
 	                })
 		  })
@@ -91,47 +92,36 @@ public class DownloadController {
 	@Produces(MediaType.TEXT_HTML)
 	@Counted(name = "STS_Counted_DownloadController_Base64Download", displayName = "DownloadController", description = "Download API counter.", absolute = true, unit = MetricUnits.NONE)
 	public Response base64Download(
-			@Parameter(description = "Optional Basic or Bearer authorization HTTP header (Base64 encoded)", in = ParameterIn.HEADER, required = false, hidden = true, 
-					schema = @Schema(implementation = String.class)) 
+			@Parameter(description = "Optional Basic or Bearer authorization HTTP header (Base64 encoded)", in = ParameterIn.HEADER, required = false, hidden = true,
+					schema = @Schema(implementation = String.class))
 				@HeaderParam("Authorization") String authString,
 			@Parameter(description = "UriInfo context injected", schema = @Schema(implementation = UriInfo.class)) @Context UriInfo uriInfo,
 			@Parameter(description = "API key", schema = @Schema(implementation = String.class)) @QueryParam("apikey") final String apikey,
-			@Parameter(description = "Url to resource to Base64 encode", in = ParameterIn.QUERY, required = true, allowEmptyValue = false, 
+			@Parameter(description = "Url to resource to Base64 encode", in = ParameterIn.QUERY, required = true, allowEmptyValue = false,
 					examples = {
 						@ExampleObject(name = "Sample zipfile download", value = "https://repo1.maven.org/maven2/com/github/javadev/qrcode-generator/1.1/qrcode-generator-1.1.jar"),
 						@ExampleObject(name = "Process Explorer zipfile download", value = "https://download.sysinternals.com/files/ProcessExplorer.zip"),
 						@ExampleObject(name = "Unzip exe download", value = "https://download.informer.com/win-1193253362-2ecfd01d-62ac9ff1-8e4fcae4627b572817-b2d9117af2b0bcdf2-937370509-1191930848/unzipme.exe")
-						}, 
-					schema = @org.eclipse.microprofile.openapi.annotations.media.Schema(implementation = String.class)) 
+						},
+					schema = @org.eclipse.microprofile.openapi.annotations.media.Schema(implementation = String.class))
 				@QueryParam("url") final String url) {
 		//@formatter:on
 
         try {
             final URL urlOfResource = new URL(url);
             final String fileName = new File(urlOfResource.getPath()).getName();
-            // Download and Base64-encode — delegated to StreamDownloadService
             final String resourceBase64Encoded = streamDownloadService.downloadStream(urlOfResource, fileName);
-            //@formatter:off
-            final String htmlContainer = "<!DOCTYPE html>" +
-                    "<html>" +
-                    "<head>" +
-                    "<title>" + fileName + "</title>" +
-                    "</head>" +
-                    "<body>" +
-                    "<div style=\"max-width:100%; word-wrap:break-word;\">" +
-                        resourceBase64Encoded +
-                    "</div>" +
-                    "</body>" +
-                    "</html>";
-			return Response
-				.ok(htmlContainer)
-				.build();
-			//@formatter:on
+            final String body = "<h2>" + HtmlService.esc(fileName) + "</h2>"
+                    + "<div style=\"max-width:100%;word-wrap:break-word;overflow-wrap:break-word\">"
+                    + resourceBase64Encoded
+                    + "</div>";
+            return Response.ok(htmlService.page(fileName, body)).build();
         } catch (Exception e) {
             e.printStackTrace();
             //@formatter:off
 			return Response
 				.status(Status.INTERNAL_SERVER_ERROR)
+				.entity(htmlService.errorPage(500, "Error downloading resource: " + HtmlService.esc(e.getMessage())))
 				.build();
 			//@formatter:on
         }

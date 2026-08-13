@@ -41,9 +41,8 @@ public final class Constants {
      * <p>
      * Mapped in {@code server.xml} as:
      * {@code <variable name="bd.credentials.file" defaultValue="${server.config.dir}/bd-credentials.properties"/>}.
-     * {@code ${server.config.dir}} is Liberty's configuration directory — outside the WAR, fully
-     * operator-editable and surviving redeployment. The file is re-read periodically so changes
-     * take effect without a server restart.
+     * {@code ${server.config.dir}} is Liberty's configuration directory — outside the WAR, fully operator-editable and
+     * surviving redeployment. The file is re-read periodically so changes take effect without a server restart.
      * </p>
      */
     public static final String CONFIG_BD_CREDENTIALS_FILE = "bd.credentials.file";
@@ -84,12 +83,19 @@ public final class Constants {
     // -------------------------------------------------------------------------
 
     /**
+     * Application short-code used in the Basic-auth credential (e.g.: {@code BD:1.0.0}, consisting of
+     * {@link Constants#APPLICATONL} and {@link Constants#APP_VERSION}).
+     */
+    public static final String APPLICATON = "BD";
+
+    /**
      * Human-readable application display name shown in HTML pages and OpenAPI metadata.
      */
     public static final String APP_DISPLAY_NAME = "BaseDownloader";
 
     /**
-     * Application version string. Reflected in the OpenAPI {@code info.version} field and in HTML page titles.
+     * Application version string. Reflected in the OpenAPI {@code info.version} field and in HTML page titles. Must be manually
+     * held in sync with Maven build file {@code pom.xml}.
      */
     public static final String APP_VERSION = "1.0.0";
 
@@ -114,16 +120,16 @@ public final class Constants {
     // -------------------------------------------------------------------------
 
     /**
-     * Hard-coded API password used by the legacy {@code DownloadController} before Task 12
-     * introduced the file-based {@code CredentialStore}.  Retained as a named constant so that
-     * the default {@code bd-credentials.properties} sample file can reference its value in a
-     * comment; it is no longer read at runtime.
+     * Hard-coded API password used by the legacy {@code DownloadController} before Task 12 introduced the file-based
+     * {@code CredentialStore}. Retained as a named constant so that the default {@code bd-credentials.properties} sample file
+     * can reference its value in a comment; it is no longer read at runtime.
      *
      * <p>
-     * <strong>Security note:</strong> this value is a PoC placeholder.  Production deployments
-     * must use a real credential file managed outside the WAR.
+     * <strong>Security note:</strong> this value is a PoC placeholder. Production deployments must use a real credential file
+     * managed outside the WAR.
      * </p>
      */
+    @Deprecated // See Constants.APP_VERSION
     public static final String LEGACY_API_PASSWORD = "1.0.0";
 
     /**

@@ -1,7 +1,6 @@
 package edu.java.rest;
 
 import javax.ejb.Stateless;
-import javax.resource.spi.AuthenticationMechanism;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Context;
@@ -22,9 +21,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * SAP for build info.
- * 
- * @see AuthenticationMechanism
+ * Health/readiness probe endpoint ({@code GET /api/info}).
+ * <p>
+ * Returns a plain-text {@code "OK"} response so load balancers and monitoring tools can
+ * verify that the application is running. This endpoint is on the {@link edu.java.security.AuthFilter}
+ * exempt list and therefore does not require credentials.
+ * </p>
  */
 @Tag(name = "Info WebServices", description = "Maven build info WebServices.")
 @Path(ApiConstants.RESOURCE_API_INFO)

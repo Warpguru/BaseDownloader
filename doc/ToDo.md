@@ -630,7 +630,7 @@ Whichever option is chosen, the following must be true across the entire applica
 
 ---
 
-## Task 13 — Consistent HTML look-and-feel via `HtmlService` ☐
+## Task 13 — Consistent HTML look-and-feel via `HtmlService` ☑
 
 **What to implement:**
 
