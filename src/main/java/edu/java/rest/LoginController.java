@@ -38,31 +38,30 @@ import edu.java.service.HtmlService;
  *
  * <h2>Endpoints</h2>
  * <ul>
- * <li>{@code GET /api/login} &mdash; returns an HTML login form. This endpoint is on the {@link AuthFilter} exempt
- * list and therefore reachable without credentials.</li>
+ * <li>{@code GET /api/login} &mdash; returns an HTML login form. This endpoint is on the {@link AuthFilter} exempt list and
+ * therefore reachable without credentials.</li>
  * <li>{@code POST /api/login} &mdash; validates the submitted triple (username, password, token) against
  * {@link CredentialStore}. On success it creates an {@link HttpSession}, stores the username under
- * {@link AuthFilter#SESSION_ATTR_USERNAME}, and redirects the browser to the download submission form. On failure
- * it applies the same {@value AuthFilter#BRUTE_FORCE_DELAY_MS} ms delay as {@link AuthFilter} and returns HTTP 401
- * with the login form again.</li>
- * <li>{@code GET /api/login/logout} &mdash; invalidates the current HTTP session (if any) and returns an HTML
- * confirmation page with a link back to the login form. This endpoint is on the {@link AuthFilter} exempt list so
- * it is reachable even after the session has already expired, making it safe to bookmark. Primarily useful for
- * testing credential changes.</li>
+ * {@link AuthFilter#SESSION_ATTR_USERNAME}, and redirects the browser to the download submission form. On failure it applies
+ * the same {@value AuthFilter#BRUTE_FORCE_DELAY_MS} ms delay as {@link AuthFilter} and returns HTTP 401 with the login form
+ * again.</li>
+ * <li>{@code GET /api/login/logout} &mdash; invalidates the current HTTP session (if any) and returns an HTML confirmation page
+ * with a link back to the login form. This endpoint is on the {@link AuthFilter} exempt list so it is reachable even after the
+ * session has already expired, making it safe to bookmark. Primarily useful for testing credential changes.</li>
  * </ul>
  *
  * <h2>Session management</h2>
  * <p>
- * Sessions are created with {@link HttpServletRequest#getSession(boolean) getSession(true)} only after successful
- * credential validation, never before. This prevents session-fixation attacks. The session is invalidated by
- * calling {@code GET /api/login/logout}, which calls {@link HttpSession#invalidate()}.
+ * Sessions are created with {@link HttpServletRequest#getSession(boolean) getSession(true)} only after successful credential
+ * validation, never before. This prevents session-fixation attacks. The session is invalidated by calling
+ * {@code GET /api/login/logout}, which calls {@link HttpSession#invalidate()}.
  * </p>
  *
  * <h2>Brute-force mitigation</h2>
  * <p>
- * A failed login attempt via this endpoint incurs the same {@value AuthFilter#BRUTE_FORCE_DELAY_MS} ms sleep as a
- * failed filter check, ensuring that attackers who use the HTML form are equally rate-limited. The logout endpoint
- * does <em>not</em> apply a delay &mdash; it is not a credential check.
+ * A failed login attempt via this endpoint incurs the same {@value AuthFilter#BRUTE_FORCE_DELAY_MS} ms sleep as a failed filter
+ * check, ensuring that attackers who use the HTML form are equally rate-limited. The logout endpoint does <em>not</em> apply a
+ * delay &mdash; it is not a credential check.
  * </p>
  */
 @Tag(name = "Login WebServices", description = "Application login and session management.")
@@ -198,13 +197,14 @@ public class LoginController {
         } else {
             logger.info("Logout: no active session to invalidate");
         }
-
+        //@formatter:off
         final String loginLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
                 + "/" + ApiConstants.RESOURCE_API_LOGIN;
         final String body = "<div class=\"success-box\">"
                 + "<strong>Logged out.</strong> Your session has been invalidated."
                 + "</div>"
                 + "<p><a href=\"" + loginLink + "\">Log in again</a></p>";
+        //@formatter:on
         // Session already invalidated — no authenticated user to show
         //@formatter:off
         return Response.ok(htmlService.page("Logged Out", body, "", null))
@@ -217,15 +217,14 @@ public class LoginController {
     // -------------------------------------------------------------------------
 
     /**
-     * Builds the HTML login form page via {@link HtmlService}.
-     * The form submits a username + password + token triple to {@code POST /api/login}.
+     * Builds the HTML login form page via {@link HtmlService}. The form submits a username + password + token triple to
+     * {@code POST /api/login}.
      *
      * @param errorMessage optional error message shown above the form; {@code null} means no error
      * @return complete HTML page as a string
      */
     private String buildLoginFormPage(final String errorMessage) {
-        final String action = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                + "/" + ApiConstants.RESOURCE_API_LOGIN;
+        final String action = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE + "/" + ApiConstants.RESOURCE_API_LOGIN;
         final StringBuilder body = new StringBuilder();
         if (errorMessage != null) {
             body.append("<div class=\"error-box\">").append(HtmlService.esc(errorMessage)).append("</div>");
@@ -249,8 +248,8 @@ public class LoginController {
     }
 
     /**
-     * Sleeps for {@link AuthFilter#BRUTE_FORCE_DELAY_MS} ms. Matches the delay applied by
-     * {@link AuthFilter} on filter-level failures so that form-based attackers are equally rate-limited.
+     * Sleeps for {@link AuthFilter#BRUTE_FORCE_DELAY_MS} ms. Matches the delay applied by {@link AuthFilter} on filter-level
+     * failures so that form-based attackers are equally rate-limited.
      */
     private void sleepBruteForceDelay() {
         try {

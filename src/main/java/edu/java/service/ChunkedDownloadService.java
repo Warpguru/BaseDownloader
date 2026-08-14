@@ -9,6 +9,9 @@ import javax.ejb.Asynchronous;
 import javax.ejb.Stateless;
 import javax.inject.Inject;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import edu.java.rest.ApiConstants;
 
 /**
@@ -50,6 +53,8 @@ import edu.java.rest.ApiConstants;
  */
 @Stateless
 public class ChunkedDownloadService {
+
+    private static final Logger logger = LoggerFactory.getLogger(ChunkedDownloadService.class);
 
     /** Size of the stream read buffer in bytes. */
     private static final int BUFFER_LENGTH_STREAM = 1 << 16;
@@ -99,7 +104,7 @@ public class ChunkedDownloadService {
 
             try (BufferedInputStream in = new BufferedInputStream(url.openStream())) {
                 while ((bytesRead = in.read(streamBuffer, 0, BUFFER_LENGTH_STREAM)) != -1) {
-                    System.out.println("ChunkedDownloadService: read " + readCount + ", bytes=" + bytesRead);
+                    logger.debug("Read {}, bytes={}", readCount, bytesRead);
                     readCount++;
 
                     // Append the freshly read bytes to chunkBuffer.
@@ -133,8 +138,7 @@ public class ChunkedDownloadService {
                         downloadTask
                                 .add(new DownloadChunk(downloadTask.getUuid(), chunkIndex, downloadTask.getOriginalFileName(),
                                         Base64.getEncoder().encodeToString(encodeBuffer), chunkStorageService));
-                        System.out.println("ChunkedDownloadService: emitted chunk " + downloadTask.getNumberOfChunks() + " of "
-                                + encodeBuffer.length + " bytes");
+                        logger.debug("Emitted chunk {} of {} bytes", downloadTask.getNumberOfChunks(), encodeBuffer.length);
 
                         // Slide chunkBuffer forward past the bytes just consumed.
                         int consumed = ApiConstants.CHUNK_SIZE_BYTES;
@@ -153,12 +157,11 @@ public class ChunkedDownloadService {
             final int finalChunkIndex = downloadTask.getNumberOfChunks() + 1;
             downloadTask.add(new DownloadChunk(downloadTask.getUuid(), finalChunkIndex, downloadTask.getOriginalFileName(),
                     Base64.getEncoder().encodeToString(finalRaw), chunkStorageService));
-            System.out.println("ChunkedDownloadService: emitted final chunk " + downloadTask.getNumberOfChunks() + " of "
-                    + finalRaw.length + " bytes");
+            logger.debug("Emitted final chunk {} of {} bytes", downloadTask.getNumberOfChunks(), finalRaw.length);
 
             downloadTask.setStatus(DownloadTask.Status.DONE);
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Download failed for uuid={} url={}", downloadTask.getUuid(), downloadTask.getRequestedUrl(), e);
             downloadTask.setStatus(DownloadTask.Status.FAILED);
             downloadTask.setErrorMessage(e.getMessage());
         } finally {

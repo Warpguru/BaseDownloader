@@ -83,7 +83,7 @@ import edu.java.rest.ApiConstants;
 public class AuthFilter implements ContainerRequestFilter {
 
     private static Logger logger = LoggerFactory.getLogger(AuthFilter.class);
-    
+
     // -------------------------------------------------------------------------
     // Constants
     // -------------------------------------------------------------------------

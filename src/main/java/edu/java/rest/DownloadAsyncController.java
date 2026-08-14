@@ -45,8 +45,8 @@ import edu.java.service.HtmlService;
  * </p>
  * <ul>
  * <li>{@link #showSubmitForm} &mdash; {@code GET /api/asyncdownload} &mdash; HTML form for URL submission.</li>
- * <li>{@link #submitDownload} &mdash; {@code POST /api/asyncdownload} &mdash; validates, registers, and fires the async download;
- * returns HTTP 202 with the task UUID.</li>
+ * <li>{@link #submitDownload} &mdash; {@code POST /api/asyncdownload} &mdash; validates, registers, and fires the async
+ * download; returns HTTP 202 with the task UUID.</li>
  * <li>{@link #getDownloadStatus} &mdash; {@code GET /api/asyncdownload/{uuid}} &mdash; status page with chunk links and
  * reassembly instructions once the download is complete.</li>
  * <li>{@link #getDownloadChunk} &mdash; {@code GET /api/asyncdownload/{uuid}/{index}} &mdash; single chunk as a downloadable
@@ -58,13 +58,13 @@ import edu.java.service.HtmlService;
  * characters). Submitting via a {@code <textarea>} in a POST body bypasses those limits entirely.
  * </p>
  * <p>
- * Authentication is enforced by the JAX-RS {@code AuthFilter} before any method is invoked; no
- * per-method credential check is needed. HTML page chrome is provided by {@link HtmlService}.
+ * Authentication is enforced by the JAX-RS {@code AuthFilter} before any method is invoked; no per-method credential check is
+ * needed. HTML page chrome is provided by {@link HtmlService}.
  * </p>
  * <p>
- * {@code @Stateless} is used (not {@code @Singleton}) so the EJB container can serve concurrent requests
- * from a pool of instances without serialising access via the default write-lock that {@code @Singleton}
- * would impose. This controller holds no mutable instance state.
+ * {@code @Stateless} is used (not {@code @Singleton}) so the EJB container can serve concurrent requests from a pool of
+ * instances without serialising access via the default write-lock that {@code @Singleton} would impose. This controller holds
+ * no mutable instance state.
  * </p>
  */
 @Tag(name = "Asynchronous Download WebServices", description = "Asynchronous chunked Base64 download WebServices.")
@@ -111,8 +111,7 @@ public class DownloadAsyncController {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public Response showSubmitForm() {
-        final String action = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                + "/" + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD;
+        final String action = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE + "/" + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD;
         final String listLink = action + "/list";
         //@formatter:off
         final String body = "<h2>Submit Download</h2>"
@@ -136,8 +135,8 @@ public class DownloadAsyncController {
     // -------------------------------------------------------------------------
 
     /**
-     * Validates the submitted URL, registers a new {@link DownloadTask}, fires the asynchronous download,
-     * and returns HTTP 202 Accepted.
+     * Validates the submitted URL, registers a new {@link DownloadTask}, fires the asynchronous download, and returns HTTP 202
+     * Accepted.
      * <p>
      * Authentication is enforced by the JAX-RS {@code AuthFilter} before this method is invoked.
      * </p>
@@ -171,26 +170,32 @@ public class DownloadAsyncController {
             @Parameter(name = "url", description = "The http://, https://, or ftp:// URL of the resource to download", in = ParameterIn.QUERY, required = true, schema = @Schema(implementation = String.class)) @FormParam("url") final String url) {
 
         if (url == null || url.trim().isEmpty()) {
+            //@formatter:off
             return Response.status(Status.BAD_REQUEST)
                     .entity(htmlService.errorPage(Status.BAD_REQUEST, "URL must not be blank.", requestContext.getUsername()))
                     .build();
+            //@formatter:on
         }
 
         final URL parsedUrl;
         try {
             parsedUrl = new URL(url.trim());
         } catch (MalformedURLException e) {
+            //@formatter:off
             return Response.status(Status.BAD_REQUEST)
                     .entity(htmlService.errorPage(Status.BAD_REQUEST, "Not a valid URL: " + e.getMessage(), requestContext.getUsername()))
                     .build();
+            //@formatter:on
         }
         final String protocol = parsedUrl.getProtocol();
         if (!"http".equals(protocol) && !"https".equals(protocol) && !"ftp".equals(protocol)) {
+            //@formatter:off
             return Response.status(Status.BAD_REQUEST)
                     .entity(htmlService.errorPage(Status.BAD_REQUEST,
                             "Unsupported protocol '" + protocol + "'. Only http, https, and ftp are accepted.",
                             requestContext.getUsername()))
                     .build();
+            //@formatter:on
         }
 
         final String fileName = new File(parsedUrl.getPath()).getName();
@@ -199,13 +204,13 @@ public class DownloadAsyncController {
         chunkedDownloadService.startDownload(task);
 
         final String uuid = task.getUuid();
-        final String statusLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                + "/" + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD + "/" + uuid;
+        final String statusLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE + "/"
+                + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD + "/" + uuid;
 
         final List<String[]> rows = new ArrayList<>();
-        rows.add(new String[]{"URL", HtmlService.esc(url.trim())});
-        rows.add(new String[]{"UUID", HtmlService.esc(uuid)});
-        rows.add(new String[]{"Status", "<a href=\"" + statusLink + "\">" + statusLink + "</a>"});
+        rows.add(new String[] { "URL", HtmlService.esc(url.trim()) });
+        rows.add(new String[] { "UUID", HtmlService.esc(uuid) });
+        rows.add(new String[] { "Status", "<a href=\"" + statusLink + "\">" + statusLink + "</a>" });
 
         //@formatter:off
         final String body = "<h2>Download Submitted</h2>"
@@ -261,9 +266,11 @@ public class DownloadAsyncController {
 
         final DownloadTask task = registry.retrieve(uuid);
         if (task == null) {
+            //@formatter:off
             return Response.status(Status.NOT_FOUND)
                     .entity(htmlService.errorPage(Status.NOT_FOUND, "No download task with UUID: " + uuid, requestContext.getUsername()))
                     .build();
+            //@formatter:on
         }
 
         final String name = task.getOriginalFileName();
@@ -279,6 +286,7 @@ public class DownloadAsyncController {
         }
         if (status == DownloadTask.Status.DONE) {
             // Minimal JS: openLinks() opens all chunk tabs; copyCmd(el) copies data-cmd to clipboard
+            //@formatter:off
             extraHead.append("<script>")
                 .append("function openLinks(){")
                 .append("var links=document.querySelectorAll('a.chunk-link');")
@@ -290,47 +298,47 @@ public class DownloadAsyncController {
                 .append("setTimeout(function(){el.textContent=prev;},1200);")
                 .append("});}")
                 .append("</script>");
+            //@formatter:on
         }
 
         // ── Details table ────────────────────────────────────────────────────
         final List<String[]> details = new ArrayList<>();
-        details.add(new String[]{"UUID", HtmlService.esc(uuid)});
-        details.add(new String[]{"URL", HtmlService.esc(task.getRequestedUrl())});
-        details.add(new String[]{"File", HtmlService.esc(name)});
-        details.add(new String[]{"Submitted", HtmlService.esc(task.getSubmittedAt().toString())});
-        details.add(new String[]{"Expires", HtmlService.esc(task.getExpiresAt().toString())});
-        details.add(new String[]{"Status", htmlService.statusBadge(status)});
+        details.add(new String[] { "UUID", HtmlService.esc(uuid) });
+        details.add(new String[] { "URL", HtmlService.esc(task.getRequestedUrl()) });
+        details.add(new String[] { "File", HtmlService.esc(name) });
+        details.add(new String[] { "Submitted", HtmlService.esc(task.getSubmittedAt().toString()) });
+        details.add(new String[] { "Expires", HtmlService.esc(task.getExpiresAt().toString()) });
+        details.add(new String[] { "Status", htmlService.statusBadge(status) });
         final String cdCmd = "cd " + chunkDir;
+        //@formatter:off
         details.add(new String[]{"Chunk&nbsp;directory",
                 "<code>" + HtmlService.esc(chunkDir) + "</code>"
                 + "&thinsp;<button class=\"btn-copy\" data-cmd=\"" + HtmlService.escAttr(cdCmd) + "\""
                 + " onclick=\"copyCmd(this)\" title=\"" + HtmlService.escAttr(cdCmd) + "\">&#x229e;</button>"});
-
+        //@formatter:on
         final StringBuilder body = new StringBuilder();
         body.append("<h2>Download Status</h2>");
-        body.append(htmlService.table(new String[]{"Field", "Value"}, details));
+        body.append(htmlService.table(new String[] { "Field", "Value" }, details));
 
         // ── Status-specific section ──────────────────────────────────────────
         if (status == DownloadTask.Status.PENDING || status == DownloadTask.Status.IN_PROGRESS) {
+            //@formatter:off
             body.append("<p>&#9203; Download is running &mdash; ")
                 .append(chunkCount).append(" chunk(s) so far. ")
                 .append("This page refreshes automatically every 5 seconds.</p>");
-
+            //@formatter:on
         } else if (status == DownloadTask.Status.DONE) {
-
             // Chunk table
             body.append("<h3>Chunks</h3>");
             body.append("<p><button onclick=\"openLinks()\">Open all chunks in new tabs</button>"
                     + " <small>(browsers may block pop-ups)</small></p>");
-
             final List<String[]> chunkRows = new ArrayList<>();
             final String btnStyle = "class=\"btn-copy\"";
             for (int i = 1; i <= chunkCount; i++) {
-                final String chunkLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                        + "/" + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD + "/" + uuid + "/" + i;
+                final String chunkLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE + "/"
+                        + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD + "/" + uuid + "/" + i;
                 final String chunkFile = name + "." + i + Constants.CHUNK_FILE_EXTENSION;
                 final DownloadChunk chunk = task.getDownloadChunk(i - 1);
-
                 // SHA-256 cell with copy buttons
                 String sha256Cell = "";
                 String md5Cell = "";
@@ -357,23 +365,18 @@ public class DownloadAsyncController {
                             + " onclick=\"copyCmd(this)\" title=\"cksum\">&#x1f427;</button>";
                     //@formatter:on
                 }
-                chunkRows.add(new String[]{
-                        String.valueOf(i),
-                        "<a class=\"chunk-link\" href=\"" + chunkLink + "\">" + HtmlService.esc(chunkFile) + "</a>",
-                        sha256Cell,
-                        md5Cell,
-                        crc32Cell
-                });
+                chunkRows.add(new String[] { String.valueOf(i),
+                        "<a class=\"chunk-link\" href=\"" + chunkLink + "\">" + HtmlService.esc(chunkFile) + "</a>", sha256Cell,
+                        md5Cell, crc32Cell });
             }
-            body.append(htmlService.table(
-                    new String[]{"#", "Filename", "SHA-256", "MD5", "CRC32"},
-                    chunkRows));
+            body.append(htmlService.table(new String[] { "#", "Filename", "SHA-256", "MD5", "CRC32" }, chunkRows));
 
             // Reassembly — Windows
             body.append("<h3>Reassembly &mdash; Windows</h3>");
             final StringBuilder copyCmd = new StringBuilder("copy /b ");
             for (int i = 1; i <= chunkCount; i++) {
-                if (i > 1) copyCmd.append(" + ");
+                if (i > 1)
+                    copyCmd.append(" + ");
                 copyCmd.append(name).append(".").append(i).append(Constants.CHUNK_FILE_EXTENSION);
             }
             copyCmd.append(" ").append(name).append(Constants.CHUNK_FILE_EXTENSION);
@@ -385,17 +388,19 @@ public class DownloadAsyncController {
             body.append("<h3>Reassembly &mdash; Linux / macOS</h3>");
             final StringBuilder catCmd = new StringBuilder("cat ");
             for (int i = 1; i <= chunkCount; i++) {
-                if (i > 1) catCmd.append(" ");
+                if (i > 1)
+                    catCmd.append(" ");
                 catCmd.append(name).append(".").append(i).append(Constants.CHUNK_FILE_EXTENSION);
             }
             catCmd.append(" > ").append(name).append(Constants.CHUNK_FILE_EXTENSION);
             final String base64Cmd = "base64 -d " + name + Constants.CHUNK_FILE_EXTENSION + " > " + name;
             appendCmdRow(body, catCmd.toString(), "&#x1f427;");
             appendCmdRow(body, base64Cmd, "&#x1f427;");
-
         } else if (status == DownloadTask.Status.FAILED) {
+            //@formatter:off
             body.append("<div class=\"error-box\">&#10060; Download failed: ")
                 .append(HtmlService.esc(task.getErrorMessage())).append("</div>");
+            //@formatter:on
         }
         //@formatter:off
         return Response.ok(htmlService.page("Download Status \u2014 " + uuid,
@@ -411,13 +416,12 @@ public class DownloadAsyncController {
     /**
      * Returns the Base64-encoded content of one chunk as a downloadable {@code text/plain} file.
      * <p>
-     * Authentication is enforced by the JAX-RS {@code AuthFilter} before this method is invoked.
-     * The {@code index} parameter is 1-based. A 404 is returned if the index is out of range or the
-     * chunk has not yet been produced.
+     * Authentication is enforced by the JAX-RS {@code AuthFilter} before this method is invoked. The {@code index} parameter is
+     * 1-based. A 404 is returned if the index is out of range or the chunk has not yet been produced.
      * </p>
      * <p>
-     * The browser session cookie established by {@code POST /api/login} is sufficient for
-     * authentication; no credential query parameter is needed.
+     * The browser session cookie established by {@code POST /api/login} is sufficient for authentication; no credential query
+     * parameter is needed.
      * </p>
      *
      * @param uuid  UUID of the download task
@@ -502,9 +506,8 @@ public class DownloadAsyncController {
     /**
      * Returns an HTML overview page listing all download tasks currently in the registry.
      * <p>
-     * Authentication is enforced by the JAX-RS {@code AuthFilter} before this method is invoked.
-     * The browser session cookie established by {@code POST /api/login} is sufficient for all
-     * link navigation; no credential query parameter is needed.
+     * Authentication is enforced by the JAX-RS {@code AuthFilter} before this method is invoked. The browser session cookie
+     * established by {@code POST /api/login} is sufficient for all link navigation; no credential query parameter is needed.
      * </p>
      *
      * @return 200 OK with an HTML task-list page
@@ -531,18 +534,19 @@ public class DownloadAsyncController {
         final java.util.Collection<DownloadTask> tasks = registry.retrieveAll();
         final StringBuilder body = new StringBuilder();
         body.append("<h2>Active Download Tasks</h2>");
-        body.append("<p><a href=\"" + Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                + "/" + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD + "\">&larr; New download</a></p>");
+        body.append("<p><a href=\"" + Constants.CONTEXT_ROOT + "/" + Constants.API_BASE + "/"
+                + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD + "\">&larr; New download</a></p>");
 
         if (tasks.isEmpty()) {
             body.append("<p>No download tasks registered.</p>");
         } else {
             final List<String[]> rows = new ArrayList<>();
             for (final DownloadTask task : tasks) {
-                final String statusLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                        + "/" + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD + "/" + task.getUuid();
+                final String statusLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE + "/"
+                        + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD + "/" + task.getUuid();
                 final int available = task.getNumberOfChunks();
                 final int total = task.getTotalChunks();
+                //@formatter:off
                 rows.add(new String[]{
                         "<a href=\"" + statusLink + "\">" + HtmlService.esc(task.getUuid()) + "</a>",
                         HtmlService.esc(task.getOriginalFileName()),
@@ -551,10 +555,13 @@ public class DownloadAsyncController {
                         HtmlService.esc(task.getSubmittedAt().toString()),
                         HtmlService.esc(task.getExpiresAt().toString())
                 });
+                //@formatter:on
             }
+            //@formatter:off
             body.append(htmlService.table(
                     new String[]{"UUID", "File", "Status", "Chunks", "Submitted", "Expires"},
                     rows));
+            //@formatter:on
         }
         //@formatter:off
         return Response.ok(htmlService.page("Active Downloads", body.toString(), "", requestContext.getUsername()))
@@ -567,7 +574,7 @@ public class DownloadAsyncController {
     // -------------------------------------------------------------------------
 
     /**
-     * Appends a flex-row with a {@code <pre>} command and a copy button to {@code sb}.
+     * Appends a flex-row with a {@code pre} command and a copy button to {@code sb}.
      *
      * @param sb      the StringBuilder to append to
      * @param cmd     the shell command to display and copy

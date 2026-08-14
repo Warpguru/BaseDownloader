@@ -72,22 +72,22 @@ public class StartupCleanupService {
     public void cleanupOnStartup() {
         logger.info("StartupCleanupService running ...");
         final Path baseDir = Paths.get(chunkBaseDir);
-        logger.info("  Cleaning directory: " + baseDir);
+        logger.info("Cleaning directory: {}", baseDir);
         int count = 0;
         if (Files.exists(baseDir)) {
             try {
                 final List<Path> topLevel = Files.list(baseDir).collect(Collectors.toList());
                 count = topLevel.size();
             } catch (IOException e) {
-                System.out.println("StartupCleanupService: could not list " + baseDir + ": " + e.getMessage());
+                logger.warn("Could not list {}: {}", baseDir, e.getMessage());
             }
         }
         try {
             chunkStorageService.deleteAllTaskDirectories();
-            System.out.println("StartupCleanupService: cleaned up " + count + " orphaned task director"
-                    + (count == 1 ? "y" : "ies") + " from previous run under " + baseDir);
+            logger.info("Cleaned up {} orphaned task director{} from previous run under {}", count, count == 1 ? "y" : "ies",
+                    baseDir);
         } catch (IOException e) {
-            System.out.println("StartupCleanupService: failed to clean up " + baseDir + ": " + e.getMessage());
+            logger.error("Failed to clean up {}: {}", baseDir, e.getMessage(), e);
         } finally {
             logger.info("StartupCleanupService finished ...");
         }

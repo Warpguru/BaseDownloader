@@ -146,24 +146,23 @@ public class CredentialStore {
                 final int equalsIdx = trimmed.indexOf('=');
                 final int colonIdx = trimmed.indexOf(':', equalsIdx + 1);
                 if (equalsIdx < 1 || colonIdx < equalsIdx + 1) {
-                    System.out.println("CredentialStore: ignoring malformed line " + lineNumber + " in " + credentialFilePath);
+                    logger.warn("Ignoring malformed line {} in {}", lineNumber, credentialFilePath);
                     continue;
                 }
                 final String username = trimmed.substring(0, equalsIdx).trim();
                 final String password = trimmed.substring(equalsIdx + 1, colonIdx).trim();
                 final String token = trimmed.substring(colonIdx + 1).trim();
                 if (username.isEmpty() || password.isEmpty() || token.isEmpty()) {
-                    System.out.println("CredentialStore: ignoring entry with empty field at line " + lineNumber + " in "
-                            + credentialFilePath);
+                    logger.warn("Ignoring entry with empty field at line {} in {}", lineNumber, credentialFilePath);
                     continue;
                 }
                 loaded.put(username, new Credential(password, token));
             }
             credentialsRef.set(Collections.unmodifiableMap(loaded));
-            System.out.println("CredentialStore: loaded " + loaded.size() + " credential(s) from " + credentialFilePath);
+            logger.info("Loaded {} credential(s) from {}", loaded.size(), credentialFilePath);
         } catch (IOException e) {
-            System.out.println("CredentialStore: WARNING — could not read credential file " + credentialFilePath + ": "
-                    + e.getMessage() + " — retaining previous credentials.");
+            logger.warn("Could not read credential file {} — retaining previous credentials: {}", credentialFilePath,
+                    e.getMessage());
         } finally {
             logger.info("CredentialStore (re)loaded");
         }
@@ -229,14 +228,13 @@ public class CredentialStore {
     }
 
     /**
-     * Decodes a Base64 Basic-auth payload ({@code base64(username:password)}) and validates it
-     * against the credential store.
+     * Decodes a Base64 Basic-auth payload ({@code base64(username:password)}) and validates it against the credential store.
      *
      * <p>
-     * <strong>Legacy fallback:</strong> if the decoded credential matches the built-in PoC token
-     * (e.g. {@code BD:1.0.0}, composed as {@link Constants#APPLICATON}{@code :}{@link Constants#APP_VERSION}),
-     * it is accepted even when no matching entry exists in the credential file. This allows the
-     * OpenAPI UI and integration tests to authenticate without editing the credential file.
+     * <strong>Legacy fallback:</strong> if the decoded credential matches the built-in PoC token (e.g. {@code BD:1.0.0},
+     * composed as {@link Constants#APPLICATON}{@code :}{@link Constants#APP_VERSION}), it is accepted even when no matching
+     * entry exists in the credential file. This allows the OpenAPI UI and integration tests to authenticate without editing the
+     * credential file.
      * </p>
      *
      * @param base64Payload the Base64-encoded {@code username:password} string

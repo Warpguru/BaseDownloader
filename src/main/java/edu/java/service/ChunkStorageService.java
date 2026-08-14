@@ -13,6 +13,8 @@ import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import edu.java.application.Constants;
 
@@ -43,6 +45,8 @@ import edu.java.application.Constants;
  */
 @ApplicationScoped
 public class ChunkStorageService {
+
+    private static final Logger logger = LoggerFactory.getLogger(ChunkStorageService.class);
 
     @Inject
     @ConfigProperty(name = Constants.CONFIG_BD_CHUNK_DIR)
@@ -145,8 +149,7 @@ public class ChunkStorageService {
     }
 
     /**
-     * Recursively deletes {@code root} and all its contents. Errors are printed to stdout (matching the existing project
-     * logging style) but not rethrown.
+     * Recursively deletes {@code root} and all its contents. Errors are logged but not rethrown.
      *
      * @param root the directory (or file) to delete
      */
@@ -169,7 +172,7 @@ public class ChunkStorageService {
                 }
             });
         } catch (IOException e) {
-            System.out.println("ChunkStorageService: failed to delete " + root + ": " + e.getMessage());
+            logger.error("Failed to delete {}: {}", root, e.getMessage(), e);
         }
     }
 

@@ -3,8 +3,8 @@ package edu.java.rest;
 import edu.java.application.Constants;
 
 /**
- * Constants for JAX-RS REST endpoints: HTTP response-header names, URL path segments,
- * authentication scheme names, and the chunk-size tuning value.
+ * Constants for JAX-RS REST endpoints: HTTP response-header names, URL path segments, authentication scheme names, and the
+ * chunk-size tuning value.
  *
  * <p>
  * Application-wide metadata (display name, version, GitHub URL, config-property keys, and file-name suffixes) live in
@@ -18,28 +18,28 @@ public final class ApiConstants {
     // -------------------------------------------------------------------------
 
     /**
-     * HTTP authentication scheme name for Basic authentication ({@code "Basic"}).
-     * Used in {@code Authorization} header parsing and OpenAPI security-scheme declarations.
+     * HTTP authentication scheme name for Basic authentication ({@code "Basic"}). Used in {@code Authorization} header parsing
+     * and OpenAPI security-scheme declarations.
      */
     public static final String AUTH_SCHEME_BASIC = "Basic";
 
     /**
-     * HTTP authentication scheme name for Bearer authentication ({@code "Bearer"}).
-     * Used in {@code Authorization} header parsing and OpenAPI security-scheme declarations.
+     * HTTP authentication scheme name for Bearer authentication ({@code "Bearer"}). Used in {@code Authorization} header
+     * parsing and OpenAPI security-scheme declarations.
      */
     public static final String AUTH_SCHEME_BEARER = "Bearer";
 
     /**
-     * OpenAPI / MicroProfile security-scheme name for Basic authentication.
-     * Must match the {@code securitySchemeName} in {@link edu.java.application.Application}
-     * and every {@code @SecurityRequirement(name = ...)} annotation that references it.
+     * OpenAPI / MicroProfile security-scheme name for Basic authentication. Must match the {@code securitySchemeName} in
+     * {@link edu.java.application.Application} and every {@code @SecurityRequirement(name = ...)} annotation that references
+     * it.
      */
     public static final String SECURITY_SCHEME_BASIC = "BasicAuthentication";
 
     /**
-     * OpenAPI / MicroProfile security-scheme name for Bearer authentication.
-     * Must match the {@code securitySchemeName} in {@link edu.java.application.Application}
-     * and every {@code @SecurityRequirement(name = ...)} annotation that references it.
+     * OpenAPI / MicroProfile security-scheme name for Bearer authentication. Must match the {@code securitySchemeName} in
+     * {@link edu.java.application.Application} and every {@code @SecurityRequirement(name = ...)} annotation that references
+     * it.
      */
     public static final String SECURITY_SCHEME_BEARER = "BearerAuthentication";
 

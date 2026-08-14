@@ -7,6 +7,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Application-scoped registry that tracks all active {@link DownloadTask} instances.
  * <p>
@@ -18,7 +21,9 @@ import javax.inject.Inject;
 @ApplicationScoped
 public class DownloadTaskRegistry {
 
-    /** Storage service used by {@link #getBase64Content()} to read the chunk file on demand. */
+    private static final Logger logger = LoggerFactory.getLogger(DownloadTaskRegistry.class);
+
+    /** Storage service used to delete on-disk chunk directories when a task expires. */
     @Inject
     private ChunkStorageService chunkStorageService;
 
@@ -88,8 +93,7 @@ public class DownloadTaskRegistry {
             try {
                 chunkStorageService.deleteTaskDirectory(downloadTask.getUuid());
             } catch (Exception e) {
-                System.out.println("DownloadTaskRegistry: failed to delete chunk dir for " + downloadTask.getUuid() + ": "
-                        + e.getMessage());
+                logger.error("Failed to delete chunk dir for uuid={}: {}", downloadTask.getUuid(), e.getMessage(), e);
             }
         }
     }
