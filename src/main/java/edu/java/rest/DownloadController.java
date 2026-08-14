@@ -104,10 +104,11 @@ public class DownloadController {
 			@Parameter(description = "API key", schema = @Schema(implementation = String.class)) @QueryParam("apikey") final String apikey,
 			@Parameter(description = "Url to resource to Base64 encode", in = ParameterIn.QUERY, required = true, allowEmptyValue = false,
 					examples = {
-						@ExampleObject(name = "Sample zipfile download", value = "https://repo1.maven.org/maven2/com/github/javadev/qrcode-generator/1.1/qrcode-generator-1.1.jar"),
-						@ExampleObject(name = "Process Explorer zipfile download", value = "https://download.sysinternals.com/files/ProcessExplorer.zip"),
-						@ExampleObject(name = "Unzip exe download", value = "https://download.informer.com/win-1193253362-2ecfd01d-62ac9ff1-8e4fcae4627b572817-b2d9117af2b0bcdf2-937370509-1191930848/unzipme.exe")
-						},
+						@ExampleObject(name = "QRCode generator (small) zipfile HTTPS download", value = "https://repo1.maven.org/maven2/com/github/javadev/qrcode-generator/1.1/qrcode-generator-1.1.jar"),
+						@ExampleObject(name = "Process Explorer (large) zipfile HTTPS download", value = "https://download.sysinternals.com/files/ProcessExplorer.zip"),
+						@ExampleObject(name = "Unzip (small) executable HTTPS download", value = "https://download.informer.com/win-1193253362-2ecfd01d-62ac9ff1-8e4fcae4627b572817-b2d9117af2b0bcdf2-937370509-1191930848/unzipme.exe"),
+                        @ExampleObject(name = "Sample (small) image FTP download", value = "ftp://demo:password@test.rebex.net/pub/example/KeyGenerator.png")
+			        },
 					schema = @org.eclipse.microprofile.openapi.annotations.media.Schema(implementation = String.class))
 				@QueryParam("url") final String url) {
 		//@formatter:on

@@ -744,7 +744,7 @@ When `HtmlService` is in place, improve the status page (`getDownloadStatus`) bo
 The auto-refresh `<meta>` tag is the only HTML-native way to poll for status without
 JavaScript; it is appropriate here and does not violate the "minimal JS" principle.
 
-  ## Task 14 — Remove `apikey` / `authString` query parameters from `DownloadAsyncController` ☐
+  ## Task 14 — Remove `apikey` / `authString` query parameters from `DownloadAsyncController` ☑
 
 **Background:**
 

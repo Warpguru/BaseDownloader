@@ -1,10 +1,8 @@
 package edu.java.rest;
 
 import java.io.File;
-import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -143,8 +141,7 @@ public class DownloadAsyncController {
      * Authentication is enforced by the JAX-RS {@code AuthFilter} before this method is invoked.
      * </p>
      *
-     * @param apikey optional API key form parameter &mdash; threaded into status links; not used for auth here
-     * @param url    the {@code http://}, {@code https://}, or {@code ftp://} URL to download
+     * @param url the {@code http://}, {@code https://}, or {@code ftp://} URL to download
      * @return 202 Accepted with UUID and status link, 400 for invalid input
      */
     //@formatter:off
@@ -170,8 +167,6 @@ public class DownloadAsyncController {
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Produces(MediaType.TEXT_HTML)
     public Response submitDownload(
-            @Parameter(name = "Authorization", description = "Optional Basic or Bearer Authorization header", in = ParameterIn.HEADER, required = false, hidden = true, schema = @Schema(implementation = String.class)) @HeaderParam("Authorization") final String authString,
-            @Parameter(name = "apikey", description = "API key (threaded into status links)", in = ParameterIn.QUERY, required = false, schema = @Schema(implementation = String.class)) @FormParam("apikey") final String apikey,
             @Parameter(name = "url", description = "The http://, https://, or ftp:// URL of the resource to download", in = ParameterIn.QUERY, required = true, schema = @Schema(implementation = String.class)) @FormParam("url") final String url) {
 
         if (url == null || url.trim().isEmpty()) {
@@ -235,9 +230,7 @@ public class DownloadAsyncController {
      * <li>{@code FAILED} &mdash; error message.</li>
      * </ul>
      *
-     * @param uuid       UUID of the download task
-     * @param authString optional {@code Authorization} header value &mdash; used as fallback for chunk link suffix
-     * @param apikey     optional API key query parameter &mdash; threaded into chunk links
+     * @param uuid UUID of the download task
      * @return 200 OK with status page, 404 if UUID not found
      */
     //@formatter:off
@@ -262,9 +255,7 @@ public class DownloadAsyncController {
     @Path("{uuid}")
     @Produces(MediaType.TEXT_HTML)
     public Response getDownloadStatus(
-            @Parameter(name = "uuid", description = "UUID of the download task", in = ParameterIn.PATH, required = true, schema = @Schema(implementation = String.class)) @PathParam("uuid") final String uuid,
-            @Parameter(name = "Authorization", description = "Optional Basic or Bearer Authorization header", in = ParameterIn.HEADER, required = false, hidden = true, schema = @Schema(implementation = String.class)) @HeaderParam("Authorization") final String authString,
-            @Parameter(name = "apikey", description = "API key (alternative to Authorization header)", in = ParameterIn.QUERY, required = false, schema = @Schema(implementation = String.class)) @QueryParam("apikey") final String apikey) {
+            @Parameter(name = "uuid", description = "UUID of the download task", in = ParameterIn.PATH, required = true, schema = @Schema(implementation = String.class)) @PathParam("uuid") final String uuid) {
 
         final DownloadTask task = registry.retrieve(uuid);
         if (task == null) {
@@ -277,18 +268,6 @@ public class DownloadAsyncController {
         final DownloadTask.Status status = task.getStatus();
         final int chunkCount = task.getNumberOfChunks();
         final String chunkDir = chunkStorageService.getTaskDirectory(uuid).toString();
-
-        // ── Credential suffix for chunk links ────────────────────────────────
-        String credSuffix = "";
-        if (apikey != null) {
-            credSuffix = "?apikey=" + apikey;
-        } else if (authString != null) {
-            try {
-                credSuffix = "?apikey=" + URLEncoder.encode(authString, "UTF-8");
-            } catch (UnsupportedEncodingException e) {
-                // UTF-8 always supported
-            }
-        }
 
         // ── Extra <head> content ─────────────────────────────────────────────
         final StringBuilder extraHead = new StringBuilder();
@@ -346,7 +325,7 @@ public class DownloadAsyncController {
             final String btnStyle = "class=\"btn-copy\"";
             for (int i = 1; i <= chunkCount; i++) {
                 final String chunkLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                        + "/" + ApiConstants.RESOURCE_API_DOWNLOAD + "/" + uuid + "/" + i + credSuffix;
+                        + "/" + ApiConstants.RESOURCE_API_DOWNLOAD + "/" + uuid + "/" + i;
                 final String chunkFile = name + "." + i + Constants.CHUNK_FILE_EXTENSION;
                 final DownloadChunk chunk = task.getDownloadChunk(i - 1);
 
@@ -433,6 +412,10 @@ public class DownloadAsyncController {
      * The {@code index} parameter is 1-based. A 404 is returned if the index is out of range or the
      * chunk has not yet been produced.
      * </p>
+     * <p>
+     * The browser session cookie established by {@code POST /api/login} is sufficient for
+     * authentication; no credential query parameter is needed.
+     * </p>
      *
      * @param uuid  UUID of the download task
      * @param index 1-based chunk index
@@ -461,9 +444,7 @@ public class DownloadAsyncController {
     @Produces(MediaType.TEXT_PLAIN)
     public Response getDownloadChunk(
             @Parameter(name = "uuid", description = "UUID of the download task", in = ParameterIn.PATH, required = true, schema = @Schema(implementation = String.class)) @PathParam("uuid") final String uuid,
-            @Parameter(name = "index", description = "1-based chunk index", in = ParameterIn.PATH, required = true, schema = @Schema(implementation = Integer.class)) @PathParam("index") final int index,
-            @Parameter(name = "Authorization", description = "Optional Basic or Bearer Authorization header", in = ParameterIn.HEADER, required = false, hidden = true, schema = @Schema(implementation = String.class)) @HeaderParam("Authorization") final String authString,
-            @Parameter(name = "apikey", description = "API key (alternative to Authorization header)", in = ParameterIn.QUERY, required = false, schema = @Schema(implementation = String.class)) @QueryParam("apikey") final String apikey) {
+            @Parameter(name = "index", description = "1-based chunk index", in = ParameterIn.PATH, required = true, schema = @Schema(implementation = Integer.class)) @PathParam("index") final int index) {
 
         if (index < 1) {
             return Response.status(Status.NOT_FOUND)
