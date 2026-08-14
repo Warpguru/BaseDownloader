@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+	<Appenders>
+
+		<!-- Formatted console output for warnings and errors -->
+		<Console name="ConsoleAppender" target="SYSTEM_OUT">
+			<PatternLayout
+				pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%30t] %-5level %-45logger:%4L - %msg%n" />
+			<ThresholdFilter level="INFO" onMatch="ACCEPT"
+				onMismatch="DENY" />
+		</Console>
+
+		<!-- Log file -->
+		<RollingFile name="ConsoleFileAppender"
+			fileName="BaseDownloader.log"
+			filePattern="BaseDownloader-%d{yyyy-MM-dd}.log" immediateFlush="true"
+			append="true">
+			<PatternLayout
+				pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%30t] %-5level %-45logger:%4L - %msg%n" />
+			<Policies>
+				<TimeBasedTriggeringPolicy interval="1" />
+			</Policies>
+		</RollingFile>
+
+	</Appenders>
+	<Loggers>
+
+		<!-- Application logging: logfile always, console only WARN+ -->
+		<Logger name="edu.java" level="ALL" additivity="false">
+			<AppenderRef ref="ConsoleAppender" />
+			<AppenderRef ref="ConsoleFileAppender" />
+		</Logger>
+
+		<!-- Catch everything else -->
+		<Root level="INFO">
+			<AppenderRef ref="ConsoleFileAppender" />
+		</Root>
+
+	</Loggers>
+</Configuration>
