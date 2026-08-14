@@ -6,7 +6,7 @@ available as a plain-text file download. This lets users in corporate environmen
 binary file downloads are blocked by firewalls — retrieve arbitrary files by downloading
 plain-text chunks and reassembling them locally.
 
-## Architecture
+## 1. Architecture
 
 ### Overview
 
@@ -38,8 +38,8 @@ graph TD
         subgraph rest["edu.java.rest — Controllers"]
             LC["LoginController\n@Stateless\nGET /api/login\nPOST /api/login\nGET /api/login/logout"]
             IC["InfoController\n@Stateless\nGET /api/info"]
-            DC["DownloadController\n@Stateless\nGET /api/base"]
-            DAC["DownloadAsyncController\n@Stateless\nGET|POST /api/download\nGET /api/download/list\nGET /api/download/{uuid}\nGET /api/download/{uuid}/{n}"]
+            DC["DownloadController\n@Stateless\nGET /api/download?url=…"]
+            DAC["DownloadAsyncController\n@Stateless\nGET|POST /api/asyncdownload\nGET /api/asyncdownload/list\nGET /api/asyncdownload/{uuid}\nGET /api/asyncdownload/{uuid}/{n}"]
         end
         subgraph security["edu.java.security — Auth"]
             AF["AuthFilter\n@Provider @Priority(AUTHENTICATION)\nContainerRequestFilter"]
@@ -135,7 +135,7 @@ sequenceDiagram
     end
 ```
 
-#### Legacy synchronous download — `GET /api/base?url=…`
+#### Legacy synchronous download — `GET /api/download?url=…`
 
 ```mermaid
 sequenceDiagram
@@ -144,7 +144,7 @@ sequenceDiagram
     participant DC as DownloadController
     participant SDS as StreamDownloadService
 
-    User->>AF: GET /api/base?url=https://...
+    User->>AF: GET /api/download?url=https://...
     AF-->>DC: authenticated — pass through
     DC->>SDS: downloadStream(url, fileName)
     SDS-->>SDS: stream URL in 1 KB chunks\nBase64-encode with 3-byte alignment\nwrite fileName and fileName.b64 to disk
@@ -168,11 +168,11 @@ sequenceDiagram
     participant CSS as ChunkStorageService
     participant DT as DownloadTask
 
-    User->>AF: GET /api/download
+    User->>AF: GET /api/asyncdownload
     AF-->>DAC: authenticated
     DAC-->>User: 200 HTML submit form
 
-    User->>AF: POST /api/download (url)
+    User->>AF: POST /api/asyncdownload (url)
     AF-->>DAC: authenticated
     DAC->>DT: new DownloadTask(url)
     DAC->>DTR: register(task)
@@ -188,12 +188,12 @@ sequenceDiagram
     end
     CDS->>DT: status = DONE / totalChunks = N
 
-    User->>AF: GET /api/download/{uuid}
+    User->>AF: GET /api/asyncdownload/{uuid}
     AF-->>DAC: authenticated
     DAC->>DTR: retrieve(uuid)
     DAC-->>User: 200 HTML — status badge, chunk table with checksums,\nreassembly commands, auto-refresh if still running
 
-    User->>AF: GET /api/download/{uuid}/1
+    User->>AF: GET /api/asyncdownload/{uuid}/1
     AF-->>DAC: authenticated
     DAC->>DT: getDownloadChunk(0)
     DAC-->>User: 200 text/plain — Content-Disposition: filename.1.txt\n+ X-BD-CRC32 / X-BD-MD5 / X-BD-SHA256 headers
@@ -227,7 +227,7 @@ sequenceDiagram
 
 ---
 
-### Key Design Decisions
+## 2. Key Design Decisions
 
 | Decision | Rationale |
 |---|---|
@@ -245,7 +245,7 @@ sequenceDiagram
 
 ---
 
-### REST API Summary
+## 3. REST API Summary
 
 | Method | Path | Auth required | Description |
 |---|---|---|---|
@@ -255,18 +255,18 @@ sequenceDiagram
 | `GET` | `/api/login` | — | HTML login form |
 | `POST` | `/api/login` | — | Validate username + password + token; creates session on success |
 | `GET` | `/api/login/logout` | — | Invalidates the current session; returns logout confirmation page |
-| `GET` | `/api/base?url=…` | ✓ | Legacy sync download — returns full Base64 HTML |
-| `GET` | `/api/download` | ✓ | HTML URL submission form |
-| `POST` | `/api/download` | ✓ | Submit async download; returns 202 + UUID |
-| `GET` | `/api/download/list` | ✓ | HTML list of all active download tasks |
-| `GET` | `/api/download/{uuid}` | ✓ | HTML status page — chunk table, checksums, reassembly commands |
-| `GET` | `/api/download/{uuid}/{n}` | ✓ | Download chunk `n` (1-based) as a `.txt` attachment |
+| `GET` | `/api/download?url=…` | ✓ | Legacy sync download — returns full Base64 HTML |
+| `GET` | `/api/asyncdownload` | ✓ | HTML URL submission form |
+| `POST` | `/api/asyncdownload` | ✓ | Submit async download; returns 202 + UUID |
+| `GET` | `/api/asyncdownload/list` | ✓ | HTML list of all active download tasks |
+| `GET` | `/api/asyncdownload/{uuid}` | ✓ | HTML status page — chunk table, checksums, reassembly commands |
+| `GET` | `/api/asyncdownload/{uuid}/{n}` | ✓ | Download chunk `n` (1-based) as a `.txt` attachment |
 
 OpenAPI / Swagger UI: `http://localhost:9080/openapi/ui`
 
 ---
 
-### Authentication
+## 4. Authentication
 
 #### Browser login
 Navigate to `http://localhost:9080/base-downloader/api/login`. Enter your username, password,
@@ -306,7 +306,7 @@ The file is outside the WAR and survives redeployment. Override the path in `ser
 
 ---
 
-### Client-Side Reassembly
+## 5. Client-Side Reassembly
 
 After downloading all chunks (`{name}.1.txt`, `{name}.2.txt`, …, `{name}.N.txt`) — the
 exact commands are also shown on the status page with one-click copy buttons:
@@ -329,7 +329,7 @@ shown in the status-page chunk table and returned as `X-BD-SHA256`, `X-BD-MD5`, 
 
 ---
 
-### Configuration Reference
+## 6. Configuration Reference
 
 All configuration is in `src/main/liberty/config/server.xml`.
 
@@ -340,7 +340,307 @@ All configuration is in `src/main/liberty/config/server.xml`.
 
 ---
 
-### Build & Run
+### Server Configuration — Standalone Liberty Deployment
+
+This section explains how to configure a standalone OpenLiberty (or WebSphere Liberty) server
+to host BaseDownloader. If you only need a local development server, skip to
+[Build & Run](#build--run) — `mvn liberty:run` handles everything automatically.
+
+---
+
+#### Prerequisites
+
+| Requirement | Minimum version | Notes |
+|---|---|---|
+| Java | 8 | Java 11+ works equally well; the app targets `--release 8` |
+| OpenLiberty | 23.0.0.x | Any recent GA release; download from [openliberty.io](https://openliberty.io/downloads/) |
+| Required features | see `server.xml` below | `jakartaee-8.0`, `microProfile-4.1`, `adminCenter-1.0`, `restConnector-2.0`, `localConnector-1.0` |
+
+WebSphere Liberty works identically — replace the `wlp/bin/installUtility` step with your
+normal Liberty feature-installation procedure.
+
+---
+
+#### Step 1 — Create the server
+
+After unzipping OpenLiberty into `/opt/wlp` (adjust the path for your OS):
+
+```bash
+/opt/wlp/bin/server create base-downloader
+```
+
+This creates the server directory at:
+
+```
+/opt/wlp/usr/servers/base-downloader/
+```
+
+---
+
+#### Step 2 — Install required features
+
+```bash
+/opt/wlp/bin/installUtility install base-downloader
+```
+
+`installUtility` reads `server.xml`, resolves any missing features from the Liberty Maven
+repository, and installs them. Run this once after creating the server (or after editing the
+`<featureManager>` block).
+
+---
+
+#### Step 3 — Liberty configuration
+
+Replace the generated `server.xml` with the template below.
+Location: `/opt/wlp/usr/servers/base-downloader/server.xml`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<server description="BaseDownloader Server">
+
+    <!-- Enable features -->
+    <featureManager>
+        <feature>localConnector-1.0</feature>
+    	<feature>adminCenter-1.0</feature>
+		<feature>jakartaee-8.0</feature>
+	    <feature>restConnector-2.0</feature>
+        <feature>microProfile-4.1</feature>
+    </featureManager>
+
+    <!-- To access this server from a remote client add a host attribute to the following element, e.g. host="*" -->
+	<httpEndpoint host="*" httpPort="${default.http.port}" httpsPort="${default.https.port}" id="defaultHttpEndpoint">
+	        <accessLogging enabled="true" logFormat="%h %i %u %t &quot;%r&quot; %s %b %D"/>
+	</httpEndpoint>
+	
+	<!-- ORB IIOP settings --> 
+	<!-- 
+	<iiopEndpoint host="localhost" id="defaultIiopEndpoint" iiopPort="${default.iiop.port}"/> 
+	-->
+	
+	<!-- Message JMS Server settings -->
+	<wasJmsEndpoint wasJmsPort="${default.jms.port}" wasJmsSSLPort="${default.jmss.port}"/>
+
+	<!-- Default SSL configuration enables trust for default certificates from the Java runtime -->
+	<ssl id="defaultSSLConfig" trustDefaultCerts="true"/>
+	 
+	<keyStore id="defaultKeyStore" password="${WLP_KEYSTORE_PASSWORD}"/>
+	 
+	<!-- Define  users -->
+	<basicRegistry id="basic">
+		<user name="${WLP_ADMIN_USERID}" password="${WLP_ADMIN_PASSWORD}"/>
+	</basicRegistry>
+	 
+	<!-- A user with the administrator-role has full access to the Admin Center -->
+	<administrator-role>
+		<user>${WLP_ADMIN_USERID}</user>
+	</administrator-role>
+	 
+	<!-- Allow AdminCenter to write configuration -->
+	<remoteFileAccess>
+		<writeDir>${server.config.dir}</writeDir>
+	</remoteFileAccess>
+	 
+	<!-- Automatically expand WAR files and EAR files -->
+	<applicationManager autoExpand="true"/>
+	 
+	<applicationMonitor updateTrigger="mbean"/>
+	 
+	<mpMetrics authentication="false"/>
+
+	<logging maxFileSize="20" maxFiles="10" traceFileName="trace.log" traceFormat="BASIC" traceSpecification="eclipselink.sql=all"/>
+	
+   	<!--
+       	Redirect http://localhost:9080/ (Liberty server root) to the application context root.
+      	welcomePageRedirectEnabled=true makes Liberty issue a 302 to the first deployed
+       	eb application (base-downloader) when the server root is requested with no matching app.
+   	-->
+	<httpDispatcher welcomePageRedirectEnabled="true"/>
+    
+    <!--
+        Credential file for BaseDownloader authentication.
+        Format: one entry per line — username=password:token
+        Lines starting with # are comments.
+        The file is re-read periodically (every minute) so changes take effect without a restart.
+        Override the path with: <variable name="bd.credentials.file" value="/secure/path/bd-credentials.properties"/>
+    -->
+    <variable name="bd.credentials.file" defaultValue="${server.config.dir}bd-credentials.properties" />
+    
+    <!-- DownloadChunk storage directory; override with <variable name="bd.chunk.dir" value="/your/path"/> -->
+    <variable name="bd.chunk.dir" defaultValue="${java.io.tmpdir}Base-Downloader" />
+    
+    <!-- 
+    <webApplication contextRoot="base-downloader" id="BaseDownloader" location="base-downloader.war" name="BaseDownloader"/>
+    -->
+    <webApplication contextRoot="base-downloader" id="BaseDownloader" location="base-downloader.war" name="BaseDownloader"/>
+    
+</server>
+```
+
+Replace the generated `jvm.options` with the template below.
+Location: `/opt/wlp/usr/servers/base-downloader/jvm.options`
+
+```text
+-Ddefault.client.encoding=UTF-8
+-Duser.country=US
+-Duser.language=en
+-Dxjavax.net.debug=ssl
+-Dxjavax.net.debug=all
+-Xms512m
+-Xmx2048m
+# Enable verbose output for class loading.
+#-verbose:class
+
+# Overwriting property in liberty-maven-plugin
+#-Dlogback.configurationFile=X:/path/logback.xml
+
+# Remote debug configuration
+#-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5008
+
+# HTTP debug options
+#-Dcom.sun.xml.internal.ws.transport.http.HttpAdapter.dumpTreshold=true
+#-Dcom.sun.xml.internal.ws.transport.http.HttpAdapter.dump=true
+#-Dcom.sun.xml.ws.transport.http.HttpAdapter.dump=true
+#-Dcom.sun.xml.internal.ws.transport.http.client.HttpTransportPipe.dump=true
+#-Dcom.sun.xml.ws.transport.http.client.HttpTransportPipe.dump=true
+```
+
+Replace the generated `server.env` with the template below.
+Location: `/opt/wlp/usr/servers/base-downloader/server.env`
+
+```text
+# WLP specific settings (keystore_password will be added upon first server start)
+WLP_SKIP_MAXPERMSIZE=true
+WLP_KEYSTORE_PASSWORD=liberty
+WLP_ADMIN_USERID=admin
+WLP_ADMIN_PASSWORD=adminpwd
+# Application specific settings
+```
+Replace the generated `bootstrap.properties` with the template below.
+Location: `/opt/wlp/usr/servers/base-downloader/bootstrap.properties`
+
+```text
+# Define HTTP ports
+default.http.port=9080
+default.https.port=9443
+# Define JMS ports (defaults 7276, 7286)
+default.jms.port=7276
+default.jmss.port=7286
+# Define IIOP ports (defaults 2809)
+default.iiop.port=2809
+ 
+# Overwriting property in liberty-maven-plugin
+#project.basedir=X:/path/BaseDownloader
+#project.build.directory=X:/path/BaseDownloader/target
+#logback-file=logback.xml
+ 
+# Define logging (alternative to server.xml) (see: https://www.ibm.com/support/knowledgecenter/SSEQTP_liberty/com.ibm.websphere.wlp.doc/ae/rwlp_logging.html)
+#com.ibm.ws.logging.trace.file.name="stdout" (logging to "stdout" prevents server from starting)
+#com.ibm.ws.logging.trace.specification="*=INFO:openjpa.jdbc=all"
+#com.ibm.ws.logging.trace.append="true" (does not work)
+#com.ibm.ws.logging.copy.system.streams="true"
+```
+
+---
+
+#### Step 4 — Create `bd-credentials.properties`
+
+Location: `/opt/wlp/usr/servers/base-downloader/bd-credentials.properties`
+(matches the `bd.credentials.file` default value above)
+
+```properties
+# BaseDownloader credential store
+# ---------------------------------------------------------------------------
+# Format:   username=password:token
+#
+#   username  — login name for the HTML form and the user badge on status pages
+#   password  — plain-text password used with Basic auth and the HTML login form
+#   token     — opaque token accepted in  Authorization: Bearer <token>
+#
+# All three fields are required.  Lines starting with # and blank lines are
+# ignored.  Changes are picked up within ~1 minute — no restart needed.
+#
+# SECURITY NOTE: passwords and tokens are stored in plain text in this
+# proof-of-concept implementation.  For production use, protect this file
+# with OS-level permissions (chmod 600 on Linux) and store it outside the
+# application directory.
+# ---------------------------------------------------------------------------
+
+# Replace these example values before deploying:
+admin=changeme:changeme-token
+```
+
+---
+
+#### Step 5 — Deploy the WAR
+
+Build the WAR and copy it to the Liberty `apps` directory:
+
+```bash
+mvn clean package
+cp target/base-downloader.war /opt/wlp/usr/servers/base-downloader/apps/
+```
+
+With `<applicationManager autoExpand="true"/>` Liberty expands the WAR into a directory
+alongside it on first start.
+
+---
+
+#### Step 6 — Start and stop the server
+
+```bash
+# Start in the foreground (Ctrl-C to stop)
+/opt/wlp/bin/server run base-downloader
+
+# Start in the background
+/opt/wlp/bin/server start base-downloader
+
+# Stop a background server
+/opt/wlp/bin/server stop base-downloader
+
+# Check server status
+/opt/wlp/bin/server status base-downloader
+```
+
+Log files are written to:
+```
+/opt/wlp/usr/servers/base-downloader/logs/messages.log   ← main log
+/opt/wlp/usr/servers/base-downloader/logs/trace.log      ← trace log
+/opt/wlp/usr/servers/base-downloader/logs/http_access.log ← access log
+```
+
+---
+
+#### Step 7 — Verify
+
+| URL | Expected result |
+|---|---|
+| `http://host:9080/` | Redirects to `/base-downloader/api/login` |
+| `http://host:9080/base-downloader/api/login` | HTML login form |
+| `http://host:9080/base-downloader/api/info` | Plain-text `OK` |
+| `http://host:9080/openapi/ui` | OpenAPI / Swagger UI |
+| `https://host:9443/adminCenter` | Liberty Admin Center (Liberty admin credentials) |
+| `http://host:9080/metrics` | MicroProfile Metrics (no credentials required) |
+
+---
+
+#### Optional — Override chunk directory and credential file path
+
+Add or edit the `<variable>` elements in `server.xml` to redirect chunk storage or the
+credential file to non-default locations:
+
+```xml
+<!-- Store chunks on a dedicated volume -->
+<variable name="bd.chunk.dir" value="/data/base-downloader/chunks"/>
+
+<!-- Credential file outside the server config directory -->
+<variable name="bd.credentials.file" value="/etc/base-downloader/bd-credentials.properties"/>
+```
+
+Note: use `value=` (not `defaultValue=`) to unconditionally override the path.
+
+---
+
+## 7. Build & Run
 
 ```bash
 # Build WAR (creates target/base-downloader.war)

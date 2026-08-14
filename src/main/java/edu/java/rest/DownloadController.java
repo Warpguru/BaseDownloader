@@ -118,9 +118,12 @@ public class DownloadController {
             final String b64FileName = HtmlService.escAttr(fileName + ".b64");
 
             // Minimal JS injected into <head>:
-            //   copyB64()  — copies textarea content to clipboard (no size limit via Clipboard API)
-            //   saveB64()  — triggers a real browser file download via Blob + createObjectURL,
-            //                which is safe for arbitrarily large content (no data: URI size limit)
+            //   copyB64()    — copies textarea value to clipboard (Clipboard API, no size limit)
+            //   saveB64()    — downloads the Base64 text as <fileName>.b64 (Blob, no size limit)
+            //   decodeSave() — decodes Base64 entirely in the browser and downloads the binary file.
+            //                  Uses chunked atob() to stay within JS string limits and keep peak
+            //                  memory manageable for large files. Zero server round-trips.
+            final String rawFileName = HtmlService.escAttr(fileName);
             final String extraHead = "<script>"
                     + "function copyB64(){"
                     + "var t=document.getElementById('b64out');"
@@ -132,9 +135,28 @@ public class DownloadController {
                     + "function saveB64(){"
                     + "var t=document.getElementById('b64out');"
                     + "var blob=new Blob([t.value],{type:'text/plain'});"
+                    + "triggerDownload(blob,'" + b64FileName + "');}"
+                    // Decode Base64 → binary entirely in the browser, chunk by chunk so that
+                    // atob() never receives a string larger than 64 KiB of Base64 at a time
+                    // (each Base64 chunk decodes to at most 48 KiB of binary data).
+                    // The resulting Uint8Array slices are collected and wrapped in a Blob —
+                    // no data: URI is ever constructed, so there is no browser size cap.
+                    + "function decodeSave(){"
+                    + "var b64=document.getElementById('b64out').value.replace(/\\s/g,'');"
+                    + "var chunkSize=65536;"  // 64 KiB of Base64 chars per atob() call
+                    + "var parts=[];"
+                    + "for(var i=0;i<b64.length;i+=chunkSize){"
+                    + "var slice=b64.slice(i,i+chunkSize);"
+                    + "var bin=atob(slice);"
+                    + "var bytes=new Uint8Array(bin.length);"
+                    + "for(var j=0;j<bin.length;j++)bytes[j]=bin.charCodeAt(j);"
+                    + "parts.push(bytes);}"
+                    + "var blob=new Blob(parts,{type:'application/octet-stream'});"
+                    + "triggerDownload(blob,'" + rawFileName + "');}"
+                    + "function triggerDownload(blob,name){"
                     + "var a=document.createElement('a');"
                     + "a.href=URL.createObjectURL(blob);"
-                    + "a.download='" + b64FileName + "';"
+                    + "a.download=name;"
                     + "a.click();"
                     + "URL.revokeObjectURL(a.href);}"
                     + "</script>";
@@ -144,7 +166,9 @@ public class DownloadController {
                     + "<p>"
                     + "<button id=\"btn-copy\" class=\"btn-copy\" onclick=\"copyB64()\" title=\"Copy Base64 content to clipboard\">&#x2398; Copy to clipboard</button>"
                     + "&thinsp;"
-                    + "<button class=\"btn-copy\" onclick=\"saveB64()\" title=\"Download as " + b64FileName + "\">&#x2913; Download " + HtmlService.esc(fileName + ".b64") + "</button>"
+                    + "<button class=\"btn-copy\" onclick=\"saveB64()\" title=\"Download Base64 text as " + b64FileName + "\">&#x2913; Download " + HtmlService.esc(fileName + ".b64") + "</button>"
+                    + "&thinsp;"
+                    + "<button class=\"btn-copy\" onclick=\"decodeSave()\" title=\"Decode Base64 and download binary file " + rawFileName + " (runs entirely in the browser)\">&#x2913; Download " + HtmlService.esc(fileName) + "</button>"
                     + "</p>"
                     + "<textarea id=\"b64out\" readonly rows=\"20\""
                     + " style=\"font-family:Consolas,'Courier New',monospace;font-size:12px;"
