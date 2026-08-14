@@ -31,7 +31,6 @@ import org.slf4j.LoggerFactory;
 import edu.java.application.Constants;
 import edu.java.security.AuthFilter;
 import edu.java.security.CredentialStore;
-import edu.java.security.RequestContext;
 import edu.java.service.HtmlService;
 
 /**
@@ -78,9 +77,6 @@ public class LoginController {
 
     @Inject
     private HtmlService htmlService;
-
-    @Inject
-    private RequestContext requestContext;
 
     // -------------------------------------------------------------------------
     // GET /api/login — serve the login form
@@ -141,9 +137,8 @@ public class LoginController {
             @Parameter(description = "Username") @FormParam("username") final String username,
             @Parameter(description = "Password") @FormParam("password") final String password,
             @Parameter(description = "API token") @FormParam("token") final String token) {
-
         logger.info("POST {} user={}", uriInfo.getRequestUri(), username);
-
+        // Validate credentials
         if (credentialStore.validateTriple(username, password, token)) {
             // ── Success: create a NEW session (prevents session fixation) ──
             final HttpSession existing = httpRequest.getSession(false);
@@ -153,7 +148,6 @@ public class LoginController {
             final HttpSession session = httpRequest.getSession(true);
             session.setAttribute(AuthFilter.SESSION_ATTR_USERNAME, username);
             logger.info("Login successful for user={}", username);
-
             try {
                 final URI downloadUri = new URI(ApiConstants.RESOURCE_API_DOWNLOAD);
                 return Response.seeOther(downloadUri).build();
@@ -161,13 +155,14 @@ public class LoginController {
                 return Response.serverError().build();
             }
         }
-
         // ── Failure: brute-force delay + 401 with form ──
         logger.warn("Login failed for user={}", username);
         sleepBruteForceDelay();
+        //@formatter:off
         return Response.status(Response.Status.UNAUTHORIZED)
                 .entity(buildLoginFormPage("Invalid username, password, or token. Please try again."))
                 .build();
+        //@formatter:on
     }
 
     // -------------------------------------------------------------------------
@@ -211,7 +206,10 @@ public class LoginController {
                 + "</div>"
                 + "<p><a href=\"" + loginLink + "\">Log in again</a></p>";
         // Session already invalidated — no authenticated user to show
-        return Response.ok(htmlService.page("Logged Out", body, "", null)).build();
+        //@formatter:off
+        return Response.ok(htmlService.page("Logged Out", body, "", null))
+                .build();
+        //@formatter:on
     }
 
     // -------------------------------------------------------------------------
@@ -232,6 +230,7 @@ public class LoginController {
         if (errorMessage != null) {
             body.append("<div class=\"error-box\">").append(HtmlService.esc(errorMessage)).append("</div>");
         }
+        //@formatter:off
         body.append("<form method=\"POST\" action=\"").append(action).append("\">")
             .append("<table>")
             .append("<tr><td><label for=\"username\">Username:</label></td>")
@@ -244,6 +243,7 @@ public class LoginController {
             .append("</table></form>")
             .append("<p><small>Alternatively, use Basic or Bearer authentication in the "
                     + "<code>Authorization</code> HTTP header for programmatic access.</small></p>");
+        //@formatter:on
         // Login page is exempt from auth — no authenticated user yet
         return htmlService.page("Login", body.toString(), "", null);
     }
