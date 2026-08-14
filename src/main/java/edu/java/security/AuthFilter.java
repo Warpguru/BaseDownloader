@@ -69,9 +69,9 @@ import edu.java.rest.ApiConstants;
  * through without a credential check:
  * </p>
  * <ul>
- * <li>{@code /base-downloader/api/login} — login form and submit</li>
- * <li>{@code /base-downloader/api/login/logout} — logout</li>
- * <li>{@code /base-downloader/api/info} — health/readiness probe</li>
+ * <li>{@code /BaseDownloader/api/login} — login form and submit</li>
+ * <li>{@code /BaseDownloader/api/login/logout} — logout</li>
+ * <li>{@code /BaseDownloader/api/info} — health/readiness probe</li>
  * <li>{@code /health} — MicroProfile Health (served by Liberty outside the WAR)</li>
  * <li>{@code /metrics} — MicroProfile Metrics</li>
  * <li>{@code /openapi} — OpenAPI descriptor and UI</li>

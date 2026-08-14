@@ -128,6 +128,6 @@ WLP_ADMIN_PASSWORD=adminpwd
 	<logging maxFileSize="20" maxFiles="10" traceFileName="trace.log" traceFormat="BASIC" traceSpecification="eclipselink.sql=all"/>
     
 
-    <webApplication contextRoot="base-downloader" id="BaseDownloader" location="base-downloader.war" name="BaseDownloader"/>
+    <webApplication contextRoot="BaseDownloader" id="BaseDownloader" location="BaseDownloader.war" name="BaseDownloader"/>
 </server>
 ```

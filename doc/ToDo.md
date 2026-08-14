@@ -183,7 +183,7 @@ those limits entirely. Therefore the submit flow uses a two-step GET → POST pa
 **GET `/api/download`** — `showSubmitForm` method:
 - No auth required (the form itself is public; auth is enforced at submit time).
 - Returns a `text/html` page containing:
-  - A `<form method="POST" action="/base-downloader/api/download">` with:
+  - A `<form method="POST" action="/BaseDownloader/api/download">` with:
     - A `<textarea name="url" rows="4">` for the download URL (multiline to comfortably fit long URLs)
     - A text `<input name="apikey">` for the API key
     - A submit button
@@ -224,7 +224,7 @@ On `DownloadAsyncController`, add a `GET` method `getDownloadStatus` mapped to `
   - **Status section** (varies by `task.status`):
     - `PENDING` or `IN_PROGRESS`: a notice that the download is still running and the user should
       reload; show current chunk count so far as progress indication.
-    - `DONE`: a numbered list of `<a href="/base-downloader/api/download/{uuid}/{n}">` links,
+    - `DONE`: a numbered list of `<a href="/BaseDownloader/api/download/{uuid}/{n}">` links,
       one per chunk (n is 1-based for display). Each link's anchor text should read
       `{originalFileName}.{n}.txt`.
     - `FAILED`: the error message from `task.errorMessage`.
@@ -310,7 +310,7 @@ Create `edu.java.service.DownloadCleanupScheduler` as a `@Singleton` EJB:
   `DownloadAsyncController` automatically.
 - Run `mvn clean package` and confirm the WAR builds without errors or warnings.
 - Manually test the complete happy path:
-  1. Open `GET /base-downloader/api/download` in a browser → submit form with a small test URL.
+  1. Open `GET /BaseDownloader/api/download` in a browser → submit form with a small test URL.
   2. Note the UUID in the 202 response; open the status link.
   3. Reload until status is `DONE`.
   4. Download chunk 1 (click link or use `curl`).
@@ -386,7 +386,7 @@ soon as they are produced, and served from disk on demand.
 
 1. Add a Liberty `<variable>` element to `src/main/liberty/config/server.xml`:
    ```xml
-   <variable name="bd.chunk.dir" defaultValue="${java.io.tmpdir}/Base-Downloader" />
+   <variable name="bd.chunk.dir" defaultValue="${java.io.tmpdir}/BaseDownloader" />
    ```
    The `defaultValue` attribute means the variable is optional: if an operator wants to override
    the location they add `<variable name="bd.chunk.dir" value="/data/bd-chunks"/>` to their
@@ -403,7 +403,7 @@ soon as they are produced, and served from disk on demand.
    - Expose:
      - `Path resolveChunkFile(String uuid, int chunkIndex, String originalFileName)` — returns
        `{chunkBaseDir}/{uuid}/{originalFileName}.{chunkIndex}.txt` (e.g.
-       `Base-Downloader/550e8400-.../data.zip.1.txt`). The filename on disk is intentionally
+       `BaseDownloader/550e8400-.../data.zip.1.txt`). The filename on disk is intentionally
        identical to the `Content-Disposition` filename the browser saves when the user clicks a
        chunk link, so the filesystem mirrors 1:1 what is shown on the status page. No zero-
        padding is used: the application always reads chunks by computed path, never by iterating
@@ -612,7 +612,7 @@ readonly=pass1:tok456
 
 Whichever option is chosen, the following must be true across the entire application:
 
-1. Accessing `GET /base-downloader/` (the context root) redirects to the login page.
+1. Accessing `GET /BaseDownloader/` (the context root) redirects to the login page.
 2. All `/api/*` paths except `GET /api/info` (health check) require the user to be authenticated.
 3. `GET /api/download` (the submit form — Task 3) must also require authentication, since it was
    previously public. Update the `showSubmitForm` method accordingly.
@@ -695,7 +695,7 @@ wrap them in the full page structure. Overloads or a builder pattern are accepta
 The application name, version string, and GitHub URL must be constants in `ApiConstants`:
 - `APP_DISPLAY_NAME = "BaseDownloader"`
 - `APP_VERSION = "1.0.0"`
-- `APP_GITHUB_URL = "https://github.com/RomanStangl/base-downloader"` (update to the real URL)
+- `APP_GITHUB_URL = "https://github.com/RomanStangl/BaseDownloader"` (update to the real URL)
 
 Javadoc on `HtmlService` must explain: why all styling is inline (no external files to deploy
 or cache-bust; the entire appearance is self-contained in the WAR); why JavaScript is kept

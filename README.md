@@ -235,7 +235,7 @@ sequenceDiagram
 | File-based credential store (`CredentialStore`) | Credentials live in `${server.config.dir}/bd-credentials.properties`, outside the WAR. Operators can add/change credentials without redeployment. The store reloads every minute. |
 | Session + header dual auth | Browser users log in via the HTML form and receive an HTTP session cookie. Programmatic callers (scripts, OpenAPI UI) supply a `Basic` or `Bearer` `Authorization` header. Both paths are handled by `AuthFilter`. |
 | 30-second delay on auth failure | Applied in both `AuthFilter` (header/session path) and `LoginController` (form path). Occupies one Liberty HTTP thread per failed attempt, making high-frequency credential guessing impractical. |
-| Chunks written to disk (`ChunkStorageService`) | Allows chunks to survive a JVM garbage-collection cycle on large downloads. Each task gets a UUID-named subdirectory under `bd.chunk.dir` (`${java.io.tmpdir}/Base-Downloader` by default). |
+| Chunks written to disk (`ChunkStorageService`) | Allows chunks to survive a JVM garbage-collection cycle on large downloads. Each task gets a UUID-named subdirectory under `bd.chunk.dir` (`${java.io.tmpdir}/BaseDownloader` by default). |
 | Per-chunk checksums (CRC32, MD5, SHA-256) | Computed during download so the status page can show a verification table and the browser can verify each downloaded chunk without re-requesting it. |
 | Controllers use `@Stateless` not `@Singleton` | `@Singleton` EJBs serialise all method calls via a default write-lock. `@Stateless` uses a container-managed pool, enabling true concurrency. |
 | `ChunkedDownloadService` uses `@Asynchronous` | The HTTP request thread returns the UUID immediately; the download runs in a separate EJB-managed thread. |
@@ -335,7 +335,7 @@ All configuration is in `src/main/liberty/config/server.xml`.
 
 | Liberty variable | Default value | Description |
 |---|---|---|
-| `bd.chunk.dir` | `${java.io.tmpdir}/Base-Downloader` | Root directory for on-disk chunk storage |
+| `bd.chunk.dir` | `${java.io.tmpdir}/BaseDownloader` | Root directory for on-disk chunk storage |
 | `bd.credentials.file` | `${server.config.dir}/bd-credentials.properties` | Path to the credential properties file |
 
 ---
@@ -366,13 +366,13 @@ normal Liberty feature-installation procedure.
 After unzipping OpenLiberty into `/opt/wlp` (adjust the path for your OS):
 
 ```bash
-/opt/wlp/bin/server create base-downloader
+/opt/wlp/bin/server create BaseDownloader
 ```
 
 This creates the server directory at:
 
 ```
-/opt/wlp/usr/servers/base-downloader/
+/opt/wlp/usr/servers/BaseDownloader/
 ```
 
 ---
@@ -380,7 +380,7 @@ This creates the server directory at:
 #### Step 2 — Install required features
 
 ```bash
-/opt/wlp/bin/installUtility install base-downloader
+/opt/wlp/bin/installUtility install BaseDownloader
 ```
 
 `installUtility` reads `server.xml`, resolves any missing features from the Liberty Maven
@@ -392,7 +392,7 @@ repository, and installs them. Run this once after creating the server (or after
 #### Step 3 — Liberty configuration
 
 Replace the generated `server.xml` with the template below.
-Location: `/opt/wlp/usr/servers/base-downloader/server.xml`
+Location: `/opt/wlp/usr/servers/BaseDownloader/server.xml`
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -466,7 +466,7 @@ Location: `/opt/wlp/usr/servers/base-downloader/server.xml`
     <variable name="bd.credentials.file" defaultValue="${server.config.dir}bd-credentials.properties" />
     
     <!-- DownloadChunk storage directory; override with <variable name="bd.chunk.dir" value="/your/path"/> -->
-    <variable name="bd.chunk.dir" defaultValue="${java.io.tmpdir}Base-Downloader" />
+    <variable name="bd.chunk.dir" defaultValue="${java.io.tmpdir}BaseDownloader" />
     
     <webApplication contextRoot="BaseDownloader" id="BaseDownloader" location="BaseDownloader-1.0.0.war" name="BaseDownloader"/>
     
@@ -474,7 +474,7 @@ Location: `/opt/wlp/usr/servers/base-downloader/server.xml`
 ```
 
 Replace the generated `jvm.options` with the template below.
-Location: `/opt/wlp/usr/servers/base-downloader/jvm.options`
+Location: `/opt/wlp/usr/servers/BaseDownloader/jvm.options`
 
 ```text
 -Ddefault.client.encoding=UTF-8
@@ -504,7 +504,7 @@ Location: `/opt/wlp/usr/servers/base-downloader/jvm.options`
 ```
 
 Replace the generated `server.env` with the template below.
-Location: `/opt/wlp/usr/servers/base-downloader/server.env`
+Location: `/opt/wlp/usr/servers/BaseDownloader/server.env`
 
 ```text
 # WLP specific settings (keystore_password will be added upon first server start)
@@ -516,7 +516,7 @@ WLP_ADMIN_PASSWORD=adminpwd
 # Application specific settings
 ```
 Replace the generated `bootstrap.properties` with the template below.
-Location: `/opt/wlp/usr/servers/base-downloader/bootstrap.properties`
+Location: `/opt/wlp/usr/servers/BaseDownloader/bootstrap.properties`
 
 ```text
 # Define HTTP ports
@@ -539,7 +539,7 @@ default.iiop.port=2809
 
 #### Step 4 — Create `bd-credentials.properties`
 
-Location: `/opt/wlp/usr/servers/base-downloader/bd-credentials.properties`
+Location: `/opt/wlp/usr/servers/BaseDownloader/bd-credentials.properties`
 (matches the `bd.credentials.file` default value above)
 
 ```properties
@@ -572,7 +572,7 @@ Build the WAR and copy it to the Liberty `apps` directory:
 
 ```bash
 mvn clean package
-cp target/BaseDownloader-1.0.0.war /opt/wlp/usr/servers/base-downloader/apps/
+cp target/BaseDownloader-1.0.0.war /opt/wlp/usr/servers/BaseDownloader/apps/
 ```
 
 With `<applicationManager autoExpand="true"/>` Liberty expands the WAR into a directory
@@ -584,23 +584,23 @@ alongside it on first start.
 
 ```bash
 # Start in the foreground (Ctrl-C to stop)
-/opt/wlp/bin/server run base-downloader
+/opt/wlp/bin/server run BaseDownloader
 
 # Start in the background
-/opt/wlp/bin/server start base-downloader
+/opt/wlp/bin/server start BaseDownloader
 
 # Stop a background server
-/opt/wlp/bin/server stop base-downloader
+/opt/wlp/bin/server stop BaseDownloader
 
 # Check server status
-/opt/wlp/bin/server status base-downloader
+/opt/wlp/bin/server status BaseDownloader
 ```
 
 Log files are written to:
 ```
-/opt/wlp/usr/servers/base-downloader/logs/messages.log   ← main log
-/opt/wlp/usr/servers/base-downloader/logs/trace.log      ← trace log
-/opt/wlp/usr/servers/base-downloader/logs/http_access.log ← access log
+/opt/wlp/usr/servers/BaseDownloader/logs/messages.log   ← main log
+/opt/wlp/usr/servers/BaseDownloader/logs/trace.log      ← trace log
+/opt/wlp/usr/servers/BaseDownloader/logs/http_access.log ← access log
 ```
 
 ---
@@ -625,10 +625,10 @@ credential file to non-default locations:
 
 ```xml
 <!-- Store chunks on a dedicated volume -->
-<variable name="bd.chunk.dir" value="/data/base-downloader/chunks"/>
+<variable name="bd.chunk.dir" value="/data/BaseDownloader/chunks"/>
 
 <!-- Credential file outside the server config directory -->
-<variable name="bd.credentials.file" value="/etc/base-downloader/bd-credentials.properties"/>
+<variable name="bd.credentials.file" value="/etc/BaseDownloader/bd-credentials.properties"/>
 ```
 
 Note: use `value=` (not `defaultValue=`) to unconditionally override the path.

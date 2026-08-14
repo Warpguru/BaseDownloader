@@ -58,7 +58,7 @@
     <applicationManager autoExpand="true"/>
 
     <!-- Chunk storage directory; override with <variable name="bd.chunk.dir" value="/your/path"/> -->
-    <variable name="bd.chunk.dir" defaultValue="${java.io.tmpdir}/Base-Downloader" />
+    <variable name="bd.chunk.dir" defaultValue="${java.io.tmpdir}/BaseDownloader" />
 
     <!--
         Credential file for BaseDownloader authentication.

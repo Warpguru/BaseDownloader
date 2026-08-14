@@ -24,7 +24,7 @@ mvn liberty:stop
 mvn test
 ```
 
-**Key**: The project builds a WAR file named `base-downloader` deployed to Liberty at context root `/BaseDownloader`.
+**Key**: The project builds a WAR file named `BaseDownloader` deployed to Liberty at context root `/BaseDownloader`.
 
 ## Code Organization & Architecture
 
@@ -162,7 +162,7 @@ Configuration is in [`src/main/liberty/config/server.xml`](src/main/liberty/conf
 - Metrics: `/metrics` endpoint active (`mpMetrics authentication="false"`)
 - Access logging enabled on the HTTP endpoint
 - `<httpDispatcher welcomePageRedirectEnabled="true"/>` — redirects `http://localhost:9080/` to the application
-- `<variable name="bd.chunk.dir" defaultValue="${java.io.tmpdir}/Base-Downloader"/>` — chunk storage directory; override without rebuilding
+- `<variable name="bd.chunk.dir" defaultValue="${java.io.tmpdir}/BaseDownloader"/>` — chunk storage directory; override without rebuilding
 - `<variable name="bd.credentials.file" defaultValue="${server.config.dir}/bd-credentials.properties"/>` — credential file; default points to `src/main/liberty/config/bd-credentials.properties`
 
 ### Credential file (`bd-credentials.properties`)

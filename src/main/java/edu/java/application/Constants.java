@@ -30,7 +30,7 @@ public final class Constants {
      * MicroProfile Config property key for the Base64 chunk storage directory.
      * <p>
      * Mapped in {@code server.xml} as:
-     * {@code <variable name="bd.chunk.dir" defaultValue="${java.io.tmpdir}/Base-Downloader"/>}. If an operator does not
+     * {@code <variable name="bd.chunk.dir" defaultValue="${java.io.tmpdir}/BaseDownloader"/>}. If an operator does not
      * override it, Liberty expands {@code ${java.io.tmpdir}} to the JVM temporary directory at startup.
      * </p>
      */
