@@ -21,7 +21,7 @@ public class DownloadTaskRegistry {
     /** Storage service used by {@link #getBase64Content()} to read the chunk file on demand. */
     @Inject
     private ChunkStorageService chunkStorageService;
-    
+
     /** Map of {@link DownloadTask} by download request handle ({@code UUID}). */
     private final ConcurrentHashMap<String, DownloadTask> downloadTasks = new ConcurrentHashMap<>();
 
@@ -66,14 +66,12 @@ public class DownloadTaskRegistry {
     }
 
     /**
-     * Removes all tasks whose {@link DownloadTask#expiresAt} timestamp is strictly before
-     * {@link Instant#now()}.
+     * Removes all tasks whose {@link DownloadTask#expiresAt} timestamp is strictly before {@link Instant#now()}.
      * <p>
-     * This method is called periodically by {@code DownloadCleanupScheduler}. Both the in-memory
-     * registry entry and the on-disk chunk directory are removed together: after removing the map
-     * entry, {@link ChunkStorageService#deleteTaskDirectory} is called for each evicted task. A
-     * failure to delete the directory is logged but does not prevent the registry entry from being
-     * removed.
+     * This method is called periodically by {@code DownloadCleanupScheduler}. Both the in-memory registry entry and the on-disk
+     * chunk directory are removed together: after removing the map entry, {@link ChunkStorageService#deleteTaskDirectory} is
+     * called for each evicted task. A failure to delete the directory is logged but does not prevent the registry entry from
+     * being removed.
      * </p>
      */
     public void removeExpired() {
@@ -90,8 +88,8 @@ public class DownloadTaskRegistry {
             try {
                 chunkStorageService.deleteTaskDirectory(downloadTask.getUuid());
             } catch (Exception e) {
-                System.out.println("DownloadTaskRegistry: failed to delete chunk dir for "
-                        + downloadTask.getUuid() + ": " + e.getMessage());
+                System.out.println("DownloadTaskRegistry: failed to delete chunk dir for " + downloadTask.getUuid() + ": "
+                        + e.getMessage());
             }
         }
     }

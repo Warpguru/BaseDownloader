@@ -13,25 +13,22 @@ import edu.java.rest.ApiConstants;
  *
  * <h2>Design rationale</h2>
  * <p>
- * All styling is <strong>inline</strong> (a single {@code <style>} block embedded in every
- * {@code <head>}). There are no external CSS files to deploy, cache-bust, or serve from a
- * separate URL. The entire appearance is therefore self-contained in the WAR and works
- * identically in any network environment, including air-gapped or offline installations.
+ * All styling is <strong>inline</strong> (a single {@code <style>} block embedded in every {@code <head>}). There are no
+ * external CSS files to deploy, cache-bust, or serve from a separate URL. The entire appearance is therefore self-contained in
+ * the WAR and works identically in any network environment, including air-gapped or offline installations.
  * </p>
  * <p>
- * JavaScript is kept to an absolute minimum. The application targets Java developers and
- * system administrators who regularly inspect HTML source and HTTP traffic. A plain HTML +
- * minimal CSS page is far more readable and auditable than a JavaScript-heavy SPA, and it
- * degrades gracefully when scripting is disabled.
+ * JavaScript is kept to an absolute minimum. The application targets Java developers and system administrators who regularly
+ * inspect HTML source and HTTP traffic. A plain HTML + minimal CSS page is far more readable and auditable than a
+ * JavaScript-heavy SPA, and it degrades gracefully when scripting is disabled.
  * </p>
  * <p>
- * This bean is {@link ApplicationScoped} because it holds no mutable state — only constants
- * and string-building logic. A single shared instance is therefore sufficient across all
- * concurrent requests, and no locking is needed.
+ * This bean is {@link ApplicationScoped} because it holds no mutable state — only constants and string-building logic. A single
+ * shared instance is therefore sufficient across all concurrent requests, and no locking is needed.
  * </p>
  *
- * <h2>Page structure</h2>
- * Every page produced by {@link #page} follows this layout:
+ * <h2>Page structure</h2> Every page produced by {@link #page} follows this layout:
+ * 
  * <pre>
  * ┌──────────────────────────────────────────────┐
  * │  HEADER: BaseDownloader vX.Y.Z  GitHub link  │
@@ -51,6 +48,7 @@ public class HtmlService {
     // Shared inline CSS — embedded in every page <head>
     // -------------------------------------------------------------------------
 
+    //@formatter:off
     private static final String STYLE =
         "<style>"
         + "*, *::before, *::after { box-sizing: border-box; }"
@@ -111,6 +109,7 @@ public class HtmlService {
         +                 " font-size: 0.8em; color: #888; text-align: center; }"
         + ".flex-row { display: flex; align-items: baseline; gap: 0.4em; margin: 0.3em 0; }"
         + "</style>";
+    //@formatter:on
 
     // -------------------------------------------------------------------------
     // Page assembly
@@ -121,6 +120,7 @@ public class HtmlService {
     // -------------------------------------------------------------------------
 
     /** GitHub mark (official simplified path). */
+    //@formatter:off
     private static final String SVG_GITHUB =
         "<svg viewBox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">"
         + "<path d=\"M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38"
@@ -132,8 +132,10 @@ public class HtmlService {
         + " 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2"
         + " 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z\"/>"
         + "</svg>";
+    //@formatter:off
 
     /** External-link / OpenAPI icon (box with arrow). */
+    //@formatter:off
     private static final String SVG_OPENAPI =
         "<svg viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">"
         + "<path d=\"M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"
@@ -141,29 +143,34 @@ public class HtmlService {
         + " 0-.83-.67-1.5-1.5-1.5S11 12.67 11 13.5V17H8v-7h3v1.17A3.49 3.49 0 0 1 14 10"
         + "a3.5 3.5 0 0 1 3.5 3.5V17z\"/>"
         + "</svg>";
+    //@formatter:on
 
     /** Person / user icon. */
+    //@formatter:off
     private static final String SVG_USER =
         "<svg viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">"
         + "<path d=\"M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-5.33 0-8 2.67-8 4v1h16v-1"
         + "c0-1.33-2.67-4-8-4z\"/>"
         + "</svg>";
+    //@formatter:on
 
     /** Door / logout icon. */
+    //@formatter:off
     private static final String SVG_LOGOUT =
         "<svg viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\">"
         + "<path d=\"M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59z\"/>"
         + "<path d=\"M19 3H5a2 2 0 0 0-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 0 0 2 2h14"
         + "a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z\"/>"
         + "</svg>";
+    //@formatter:on
 
     // -------------------------------------------------------------------------
     // Page assembly
     // -------------------------------------------------------------------------
 
     /**
-     * Builds a complete HTML page with the standard header, breadcrumb, body, and footer.
-     * The header shows no authenticated user (suitable for login/logout pages).
+     * Builds a complete HTML page with the standard header, breadcrumb, body, and footer. The header shows no authenticated
+     * user (suitable for login/logout pages).
      *
      * @param pageTitle the human-readable page title
      * @param bodyHtml  pre-built body content
@@ -174,8 +181,7 @@ public class HtmlService {
     }
 
     /**
-     * Builds a complete HTML page with optional extra {@code <head>} content.
-     * The header shows no authenticated user.
+     * Builds a complete HTML page with optional extra {@code <head>} content. The header shows no authenticated user.
      *
      * @param pageTitle     human-readable page title
      * @param bodyHtml      pre-built body content
@@ -187,12 +193,11 @@ public class HtmlService {
     }
 
     /**
-     * Builds a complete HTML page with optional extra {@code <head>} content and an
-     * authenticated-user badge in the header.
+     * Builds a complete HTML page with optional extra {@code <head>} content and an authenticated-user badge in the header.
      * <p>
-     * Use {@code extraHeadHtml} to insert a {@code <meta http-equiv="refresh">} tag or a
-     * minimal {@code <script>} block. Pass {@code username} (from {@link edu.java.security.RequestContext})
-     * to show the logged-in user as a non-clickable icon badge in the header.
+     * Use {@code extraHeadHtml} to insert a {@code <meta http-equiv="refresh">} tag or a minimal {@code <script>} block. Pass
+     * {@code username} (from {@link edu.java.security.RequestContext}) to show the logged-in user as a non-clickable icon badge
+     * in the header.
      * </p>
      *
      * @param pageTitle     human-readable page title
@@ -201,26 +206,28 @@ public class HtmlService {
      * @param username      the authenticated username to display in the header, or {@code null}
      * @return complete HTML document as a string
      */
-    public String page(final String pageTitle, final String bodyHtml,
-            final String extraHeadHtml, final String username) {
-        final String homeLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                + "/" + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD;
+    public String page(final String pageTitle, final String bodyHtml, final String extraHeadHtml, final String username) {
+        final String homeLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE + "/"
+                + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD;
         final String openApiLink = "/openapi/ui";
-        final String logoutLink  = Constants.CONTEXT_ROOT + "/api/login/logout";
+        final String logoutLink = Constants.CONTEXT_ROOT + "/api/login/logout";
 
         final StringBuilder sb = new StringBuilder(2048);
+        //@formatter:off
         sb.append("<!DOCTYPE html><html lang=\"en\"><head>")
           .append("<meta charset=\"UTF-8\">")
           .append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
           .append("<title>").append(esc(pageTitle)).append(" &mdash; ").append(Constants.APP_DISPLAY_NAME)
           .append("</title>")
           .append(STYLE);
+        //@formatter:on
         if (extraHeadHtml != null && !extraHeadHtml.isEmpty()) {
             sb.append(extraHeadHtml);
         }
         sb.append("</head><body><div class=\"page\">");
 
         // ── Header ────────────────────────────────────────────────────────────
+        //@formatter:off
         sb.append("<header class=\"site-header\">")
           .append("<div style=\"display:flex;align-items:baseline\">")
           .append("<h1>").append(Constants.APP_DISPLAY_NAME)
@@ -228,51 +235,66 @@ public class HtmlService {
           .append("<span class=\"tagline\">Base64 chunked downloader</span>")
           .append("</div>")
           .append("<div class=\"header-icons\">");
+        //@formatter:on
 
         // GitHub icon
+        //@formatter:off
         sb.append("<a class=\"hdr-icon\" href=\"").append(Constants.APP_GITHUB_URL)
           .append("\" target=\"_blank\" title=\"").append(escAttr(Constants.APP_GITHUB_URL)).append("\">")
           .append(SVG_GITHUB).append("</a>");
+        //@formatter:on
 
         sb.append("<span class=\"hdr-sep\">|</span>");
 
         // OpenAPI UI icon
+        //@formatter:off
         sb.append("<a class=\"hdr-icon\" href=\"").append(openApiLink)
           .append("\" target=\"_blank\" title=\"").append(openApiLink).append("\">")
           .append(SVG_OPENAPI).append("</a>");
+        //@formatter:on
 
         sb.append("<span class=\"hdr-sep\">|</span>");
 
         // User badge — non-clickable, shows username as tooltip
         final String displayUser = (username != null && !username.isEmpty()) ? username : "anonymous";
+        //@formatter:off
         sb.append("<span class=\"hdr-user\" title=\"").append(escAttr(displayUser)).append("\">")
           .append(SVG_USER)
           .append("</span>");
+        //@formatter:on
 
         // Logout icon
+        //@formatter:off
         sb.append("<a class=\"hdr-icon\" href=\"").append(logoutLink)
           .append("\" title=\"Logout (").append(escAttr(displayUser)).append(")\">")
           .append(SVG_LOGOUT).append("</a>");
+        //@formatter:on
 
         sb.append("</div></header>");
 
         // Breadcrumb
+        //@formatter:off
         sb.append("<nav class=\"breadcrumb\">")
           .append("<a href=\"").append(homeLink).append("\">Home</a>")
           .append(" &rsaquo; ").append(esc(pageTitle))
           .append("</nav>");
+        //@formatter:on
 
         // Body
+        //@formatter:off
         sb.append("<main>")
           .append(bodyHtml)
           .append("</main>");
+        //@formatter:on
 
         // Footer
+        //@formatter:off
         sb.append("<footer class=\"site-footer\">")
           .append("&copy; ").append(Constants.APP_DISPLAY_NAME)
           .append(" &nbsp;|&nbsp; <a href=\"").append(Constants.APP_GITHUB_URL)
           .append("\" target=\"_blank\">").append(Constants.APP_GITHUB_URL).append("</a>")
           .append("</footer>");
+        //@formatter:on
 
         sb.append("</div></body></html>");
         return sb.toString();
@@ -300,11 +322,13 @@ public class HtmlService {
     public String errorPage(final Status status, final String message, final String username) {
         final int code = status.getStatusCode();
         final String reason = status.getReasonPhrase();
+        //@formatter:off
         final String body = "<div class=\"error-box\">"
                 + "<strong>" + code + " " + reason + "</strong> &mdash; " + esc(message)
                 + "</div>"
                 + "<p><a href=\"" + Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
                 + "/" + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD + "\">Back to downloads</a></p>";
+        //@formatter:on
         return page(code + " " + reason, body, "", username);
     }
 
@@ -316,8 +340,8 @@ public class HtmlService {
      * Builds a styled HTML table with a {@code <thead>} row and {@code <tbody>} rows.
      *
      * @param headers column header labels
-     * @param rows    list of row data arrays; each array must have the same length as
-     *                {@code headers}; values are inserted verbatim (may contain HTML)
+     * @param rows    list of row data arrays; each array must have the same length as {@code headers}; values are inserted
+     *                verbatim (may contain HTML)
      * @return {@code <table>} element as a string
      */
     public String table(final String[] headers, final List<String[]> rows) {
@@ -341,9 +365,9 @@ public class HtmlService {
     /**
      * Returns a coloured {@code <span>} badge for the given download-task status.
      * <ul>
-     *   <li>{@code DONE} &rarr; green</li>
-     *   <li>{@code FAILED} &rarr; red</li>
-     *   <li>{@code IN_PROGRESS} / {@code PENDING} &rarr; orange</li>
+     * <li>{@code DONE} &rarr; green</li>
+     * <li>{@code FAILED} &rarr; red</li>
+     * <li>{@code IN_PROGRESS} / {@code PENDING} &rarr; orange</li>
      * </ul>
      *
      * @param status the task status
@@ -352,9 +376,15 @@ public class HtmlService {
     public String statusBadge(final DownloadTask.Status status) {
         final String cls;
         switch (status) {
-            case DONE:        cls = "badge-done";     break;
-            case FAILED:      cls = "badge-failed";   break;
-            default:          cls = "badge-progress"; break;
+        case DONE:
+            cls = "badge-done";
+            break;
+        case FAILED:
+            cls = "badge-failed";
+            break;
+        default:
+            cls = "badge-progress";
+            break;
         }
         return "<span class=\"" + cls + "\">" + status.name() + "</span>";
     }
@@ -364,10 +394,8 @@ public class HtmlService {
     // -------------------------------------------------------------------------
 
     /**
-     * HTML-encodes the five characters that are significant in HTML text content:
-     * {@code &}, {@code <}, {@code >}, {@code "}, {@code '}.
-     * Use this for any user-supplied or URL-derived string placed inside HTML text or
-     * attribute values.
+     * HTML-encodes the five characters that are significant in HTML text content: {@code &}, {@code <}, {@code >}, {@code "},
+     * {@code '}. Use this for any user-supplied or URL-derived string placed inside HTML text or attribute values.
      *
      * @param s raw string; {@code null} is treated as an empty string
      * @return HTML-safe string
@@ -376,17 +404,19 @@ public class HtmlService {
         if (s == null) {
             return "";
         }
+        //@formatter:off
         return s.replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
                 .replace("'", "&#39;");
+        //@formatter:on
     }
 
     /**
-     * HTML-encodes only {@code &} and {@code "} — sufficient for content placed inside a
-     * double-quoted HTML <em>attribute</em> value that is already known to contain no
-     * angle-bracket characters (e.g. filesystem paths in {@code data-cmd} attributes).
+     * HTML-encodes only {@code &} and {@code "} — sufficient for content placed inside a double-quoted HTML <em>attribute</em>
+     * value that is already known to contain no angle-bracket characters (e.g. filesystem paths in {@code data-cmd}
+     * attributes).
      *
      * @param s raw string
      * @return attribute-safe string

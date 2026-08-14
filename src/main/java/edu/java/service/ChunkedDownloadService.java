@@ -38,10 +38,9 @@ import edu.java.rest.ApiConstants;
  *
  * <h2>Chunk persistence</h2>
  * <p>
- * Each chunk is immediately written to {@code {bd.chunk.dir}/{uuid}/{originalFileName}.{n}.txt}
- * via {@link ChunkStorageService} so that memory usage remains bounded regardless of file size.
- * The in-memory {@link DownloadTask} holds only metadata ({@link DownloadChunk} objects with
- * checksums and file coordinates); the Base64 text is read back from disk on demand.
+ * Each chunk is immediately written to {@code {bd.chunk.dir}/{uuid}/{originalFileName}.{n}.txt} via {@link ChunkStorageService}
+ * so that memory usage remains bounded regardless of file size. The in-memory {@link DownloadTask} holds only metadata
+ * ({@link DownloadChunk} objects with checksums and file coordinates); the Base64 text is read back from disk on demand.
  * </p>
  *
  * <p>
@@ -57,7 +56,7 @@ public class ChunkedDownloadService {
 
     @Inject
     private DownloadTaskRegistry registry;
-   
+
     @Inject
     private ChunkStorageService chunkStorageService;
 
@@ -131,9 +130,9 @@ public class ChunkedDownloadService {
                         }
 
                         final int chunkIndex = downloadTask.getNumberOfChunks() + 1;
-                        downloadTask.add(new DownloadChunk(downloadTask.getUuid(), chunkIndex,
-                                downloadTask.getOriginalFileName(),
-                                Base64.getEncoder().encodeToString(encodeBuffer), chunkStorageService));
+                        downloadTask
+                                .add(new DownloadChunk(downloadTask.getUuid(), chunkIndex, downloadTask.getOriginalFileName(),
+                                        Base64.getEncoder().encodeToString(encodeBuffer), chunkStorageService));
                         System.out.println("ChunkedDownloadService: emitted chunk " + downloadTask.getNumberOfChunks() + " of "
                                 + encodeBuffer.length + " bytes");
 
@@ -152,8 +151,7 @@ public class ChunkedDownloadService {
             System.arraycopy(chunkBuffer, 0, finalRaw, clipboardBuffer.length, chunkBuffer.length);
             // The final encode may have padding — this is the only '=' that should appear.
             final int finalChunkIndex = downloadTask.getNumberOfChunks() + 1;
-            downloadTask.add(new DownloadChunk(downloadTask.getUuid(), finalChunkIndex,
-                    downloadTask.getOriginalFileName(),
+            downloadTask.add(new DownloadChunk(downloadTask.getUuid(), finalChunkIndex, downloadTask.getOriginalFileName(),
                     Base64.getEncoder().encodeToString(finalRaw), chunkStorageService));
             System.out.println("ChunkedDownloadService: emitted final chunk " + downloadTask.getNumberOfChunks() + " of "
                     + finalRaw.length + " bytes");

@@ -23,11 +23,10 @@ import java.util.zip.CRC32;
  *
  * <h2>Why CRC32, MD5, and SHA-256?</h2>
  * <p>
- * CRC32 is fast and universally available on Linux/macOS ({@code cksum}); MD5 is the traditional
- * file-integrity standard ({@code md5sum}, {@code certutil -hashfile ... MD5}); SHA-256 is the
- * current security-grade standard ({@code sha256sum}, {@code certutil -hashfile ... SHA256},
- * supported by 7-Zip and most modern archive tools).  Providing all three gives users the widest
- * choice of verification tool without recomputing on their end.
+ * CRC32 is fast and universally available on Linux/macOS ({@code cksum}); MD5 is the traditional file-integrity standard
+ * ({@code md5sum}, {@code certutil -hashfile ... MD5}); SHA-256 is the current security-grade standard ({@code sha256sum},
+ * {@code certutil -hashfile ... SHA256}, supported by 7-Zip and most modern archive tools). Providing all three gives users the
+ * widest choice of verification tool without recomputing on their end.
  * </p>
  */
 public class DownloadChunk {
@@ -64,11 +63,11 @@ public class DownloadChunk {
      * Constructs a {@code DownloadChunk}, computes checksums, and immediately persists {@code base64Content} to disk via
      * {@link ChunkStorageService#writeChunk}. The content string is not stored in this object after construction.
      *
-     * @param uuid             UUID of the owning download task
-     * @param chunkIndex       1-based chunk index
-     * @param originalFileName original filename from the URL path
-     * @param base64Content    the Base64-encoded text of this chunk
-     * @param chunkStorageService          the chunkStorageService service used to persist and later read the chunk file
+     * @param uuid                UUID of the owning download task
+     * @param chunkIndex          1-based chunk index
+     * @param originalFileName    original filename from the URL path
+     * @param base64Content       the Base64-encoded text of this chunk
+     * @param chunkStorageService the chunkStorageService service used to persist and later read the chunk file
      * @throws IOException if the chunk file cannot be written
      */
     public DownloadChunk(final String uuid, final int chunkIndex, final String originalFileName, final String base64Content,
@@ -128,8 +127,8 @@ public class DownloadChunk {
     }
 
     /**
-     * Computes a hex-encoded digest using the named {@link MessageDigest} algorithm.
-     * Both MD5 and SHA-256 are guaranteed by the Java SE specification.
+     * Computes a hex-encoded digest using the named {@link MessageDigest} algorithm. Both MD5 and SHA-256 are guaranteed by the
+     * Java SE specification.
      *
      * @param algorithm JCA algorithm name (e.g. {@code "MD5"}, {@code "SHA-256"})
      * @param bytes     input bytes

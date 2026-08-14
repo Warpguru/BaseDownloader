@@ -105,8 +105,8 @@ public class ChunkStorageService {
      * @param uuid UUID of the task whose chunk directory should be deleted
      */
     /**
-     * Returns the directory path where all chunks for the given task UUID are stored.
-     * This is the directory the user must {@code cd} into to run the reassembly commands.
+     * Returns the directory path where all chunks for the given task UUID are stored. This is the directory the user must
+     * {@code cd} into to run the reassembly commands.
      *
      * @param uuid UUID of the owning download task
      * @return absolute path of the task chunk directory

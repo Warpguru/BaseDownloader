@@ -58,9 +58,9 @@ public class DownloadTask {
     private String originalFileName;
 
     /**
-     * Ordered list of downloadChunks produced by the background download, each carrying Base64 content and CRC32/MD5 checksums. Each
-     * entry except the last represents exactly {@code ApiConstants.CHUNK_SIZE_BYTES} of original binary data; the last entry
-     * may be smaller.
+     * Ordered list of downloadChunks produced by the background download, each carrying Base64 content and CRC32/MD5 checksums.
+     * Each entry except the last represents exactly {@code ApiConstants.CHUNK_SIZE_BYTES} of original binary data; the last
+     * entry may be smaller.
      */
     private List<DownloadChunk> downloadChunks;
 
