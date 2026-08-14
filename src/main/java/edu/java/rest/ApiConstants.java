@@ -62,11 +62,11 @@ public final class ApiConstants {
     /** Path segment for {@code InfoController} ({@code /api/info}). */
     public static final String RESOURCE_API_INFO = "info";
 
-    /** Path segment for {@code DownloadController} ({@code /api/base}). */
-    public static final String RESOURCE_API_BASE = "base";
-
-    /** Path segment for {@code DownloadAsyncController} ({@code /api/download}). */
+    /** Path segment for {@code DownloadController} ({@code /api/download}). */
     public static final String RESOURCE_API_DOWNLOAD = "download";
+
+    /** Path segment for {@code DownloadAsyncController} ({@code /api/asyncdownload}). */
+    public static final String RESOURCE_API_ASYNCDOWNLOAD = "asyncdownload";
 
     /** Response header carrying the UUID of a newly submitted download task. */
     public static final String HEADER_X_BD_UUID = "X-BD-UUID";

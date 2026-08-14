@@ -36,7 +36,7 @@ import edu.java.service.HtmlService;
 import edu.java.service.StreamDownloadService;
 
 /**
- * JAX-RS controller for the legacy single-stream Base64-download endpoint ({@code GET /api/base}).
+ * JAX-RS controller for the legacy single-stream Base64-download endpoint ({@code GET /api/download}).
  * <p>
  * This controller is intentionally thin: authentication is handled by the JAX-RS {@code AuthFilter} before any controller
  * method is invoked; all stream-download / Base64-encoding logic is delegated to {@link StreamDownloadService}; and HTML page
@@ -48,8 +48,8 @@ import edu.java.service.StreamDownloadService;
  * no mutable instance state.
  * </p>
  */
-@Tag(name = "Download WebServices", description = "Maven build info WebServices.")
-@Path(ApiConstants.RESOURCE_API_BASE)
+@Tag(name = "Download WebServices", description = "Base64 download WebServices.")
+@Path(ApiConstants.RESOURCE_API_DOWNLOAD)
 @Stateless
 public class DownloadController {
 
@@ -77,7 +77,7 @@ public class DownloadController {
 		value = {
 		    @APIResponse(
 		        responseCode = "200",
-		            description = "Resource downloaded and returned as Base64-encoded HTML.",
+		            description = "Resource downloaded and returned Base64-encoded in an HTML container.",
 		            content = {
 		                @Content(
 		                	mediaType = MediaType.TEXT_HTML,
@@ -97,7 +97,7 @@ public class DownloadController {
 		@SecurityRequirement(name = ApiConstants.SECURITY_SCHEME_BEARER)})
 	@GET
 	@Produces(MediaType.TEXT_HTML)
-	@Counted(name = "STS_Counted_DownloadController_Base64Download", displayName = "DownloadController", description = "Download API counter.", absolute = true, unit = MetricUnits.NONE)
+	@Counted(name = "BD_Counted_DownloadController_Base64Download", displayName = "DownloadController", description = "Download API counter.", absolute = true, unit = MetricUnits.NONE)
 	public Response base64Download(
             @Parameter(hidden = true) @Context final UriInfo uriInfo,
 			@Parameter(description = "Url to resource to Base64 encode", in = ParameterIn.QUERY, required = true, allowEmptyValue = false,
@@ -115,12 +115,44 @@ public class DownloadController {
             final URL urlOfResource = new URL(url);
             final String fileName = new File(urlOfResource.getPath()).getName();
             final String resourceBase64Encoded = streamDownloadService.downloadStream(urlOfResource, fileName);
+            final String b64FileName = HtmlService.escAttr(fileName + ".b64");
+
+            // Minimal JS injected into <head>:
+            //   copyB64()  — copies textarea content to clipboard (no size limit via Clipboard API)
+            //   saveB64()  — triggers a real browser file download via Blob + createObjectURL,
+            //                which is safe for arbitrarily large content (no data: URI size limit)
+            final String extraHead = "<script>"
+                    + "function copyB64(){"
+                    + "var t=document.getElementById('b64out');"
+                    + "navigator.clipboard.writeText(t.value).then(function(){"
+                    + "var b=document.getElementById('btn-copy');"
+                    + "var prev=b.textContent;b.textContent='\\u2713 Copied!';"
+                    + "setTimeout(function(){b.textContent=prev;},1500);"
+                    + "});}"
+                    + "function saveB64(){"
+                    + "var t=document.getElementById('b64out');"
+                    + "var blob=new Blob([t.value],{type:'text/plain'});"
+                    + "var a=document.createElement('a');"
+                    + "a.href=URL.createObjectURL(blob);"
+                    + "a.download='" + b64FileName + "';"
+                    + "a.click();"
+                    + "URL.revokeObjectURL(a.href);}"
+                    + "</script>";
+
             //@formatter:off
             final String body = "<h2>" + HtmlService.esc(fileName) + "</h2>"
-                    + "<div style=\"max-width:100%;word-wrap:break-word;overflow-wrap:break-word\">"
+                    + "<p>"
+                    + "<button id=\"btn-copy\" class=\"btn-copy\" onclick=\"copyB64()\" title=\"Copy Base64 content to clipboard\">&#x2398; Copy to clipboard</button>"
+                    + "&thinsp;"
+                    + "<button class=\"btn-copy\" onclick=\"saveB64()\" title=\"Download as " + b64FileName + "\">&#x2913; Download " + HtmlService.esc(fileName + ".b64") + "</button>"
+                    + "</p>"
+                    + "<textarea id=\"b64out\" readonly rows=\"20\""
+                    + " style=\"font-family:Consolas,'Courier New',monospace;font-size:12px;"
+                    + "width:100%;resize:vertical;word-break:break-all;white-space:pre-wrap;"
+                    + "background:#f4f4f4;border:1px solid #ccc;padding:0.5em;border-radius:3px;\">"
                     + resourceBase64Encoded
-                    + "</div>";
-            return Response.ok(htmlService.page(fileName, body, "", requestContext.getUsername()))
+                    + "</textarea>";
+            return Response.ok(htmlService.page(fileName, body, extraHead, requestContext.getUsername()))
                     .build();
             //@formatter:on
         } catch (Exception e) {

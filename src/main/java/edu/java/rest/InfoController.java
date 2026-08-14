@@ -23,9 +23,8 @@ import org.slf4j.LoggerFactory;
 /**
  * Health/readiness probe endpoint ({@code GET /api/info}).
  * <p>
- * Returns a plain-text {@code "OK"} response so load balancers and monitoring tools can
- * verify that the application is running. This endpoint is on the {@link edu.java.security.AuthFilter}
- * exempt list and therefore does not require credentials.
+ * Returns a plain-text {@code "OK"} response so load balancers and monitoring tools can verify that the application is running.
+ * This endpoint is on the {@link edu.java.security.AuthFilter} exempt list and therefore does not require credentials.
  * </p>
  */
 @Tag(name = "Info WebServices", description = "Maven build info WebServices.")
@@ -51,15 +50,15 @@ public class InfoController {
 		            })})
 	//@formatter:on
     @GET
-    @Counted(name = "STS_Counted_InfoController_Info", displayName = "InfoController", description = "Info API counter.", absolute = true, unit = MetricUnits.NONE)
+    @Counted(name = "BD_Counted_InfoController_Info", displayName = "InfoController", description = "Info API counter.", absolute = true, unit = MetricUnits.NONE)
     public Response info(
             @Parameter(description = "UriInfo context injected", schema = @Schema(implementation = UriInfo.class)) @Context UriInfo uriInfo) {
         logger.info("GET {}", uriInfo.getRequestUri());
         //@formatter:off
 		return Response.ok("OK")
-//	.header(ApiConstants.HEADER_X_HOSTNAME, "AppUtil.getInstance().getHostName()")
-		               .build();
-	//@formatter:on
+		        // .header(ApiConstants.HEADER_X_HOSTNAME, "AppUtil.getInstance().getHostName()")
+		        .build();
+		//@formatter:on
     }
 
 }

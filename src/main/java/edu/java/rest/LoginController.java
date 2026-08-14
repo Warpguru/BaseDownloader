@@ -149,7 +149,7 @@ public class LoginController {
             session.setAttribute(AuthFilter.SESSION_ATTR_USERNAME, username);
             logger.info("Login successful for user={}", username);
             try {
-                final URI downloadUri = new URI(ApiConstants.RESOURCE_API_DOWNLOAD);
+                final URI downloadUri = new URI(ApiConstants.RESOURCE_API_ASYNCDOWNLOAD);
                 return Response.seeOther(downloadUri).build();
             } catch (URISyntaxException e) {
                 return Response.serverError().build();

@@ -44,14 +44,14 @@ import edu.java.service.HtmlService;
  * Mapped to {@code /api/download}, this controller provides:
  * </p>
  * <ul>
- * <li>{@link #showSubmitForm} &mdash; {@code GET /api/download} &mdash; HTML form for URL submission.</li>
- * <li>{@link #submitDownload} &mdash; {@code POST /api/download} &mdash; validates, registers, and fires the async download;
+ * <li>{@link #showSubmitForm} &mdash; {@code GET /api/asyncdownload} &mdash; HTML form for URL submission.</li>
+ * <li>{@link #submitDownload} &mdash; {@code POST /api/asyncdownload} &mdash; validates, registers, and fires the async download;
  * returns HTTP 202 with the task UUID.</li>
- * <li>{@link #getDownloadStatus} &mdash; {@code GET /api/download/{uuid}} &mdash; status page with chunk links and
+ * <li>{@link #getDownloadStatus} &mdash; {@code GET /api/asyncdownload/{uuid}} &mdash; status page with chunk links and
  * reassembly instructions once the download is complete.</li>
- * <li>{@link #getDownloadChunk} &mdash; {@code GET /api/download/{uuid}/{index}} &mdash; single chunk as a downloadable
+ * <li>{@link #getDownloadChunk} &mdash; {@code GET /api/asyncdownload/{uuid}/{index}} &mdash; single chunk as a downloadable
  * {@code text/plain} file.</li>
- * <li>{@link #listDownloads} &mdash; {@code GET /api/download/list} &mdash; overview of all active tasks.</li>
+ * <li>{@link #listDownloads} &mdash; {@code GET /api/asyncdownload/list} &mdash; overview of all active tasks.</li>
  * </ul>
  * <p>
  * The GET &rarr; POST split exists because URLs can exceed typical query-string length limits (2&nbsp;000&ndash;8&nbsp;192
@@ -67,8 +67,8 @@ import edu.java.service.HtmlService;
  * would impose. This controller holds no mutable instance state.
  * </p>
  */
-@Tag(name = "Async Download WebServices", description = "Asynchronous chunked Base64 download WebServices.")
-@Path(ApiConstants.RESOURCE_API_DOWNLOAD)
+@Tag(name = "Asynchronous Download WebServices", description = "Asynchronous chunked Base64 download WebServices.")
+@Path(ApiConstants.RESOURCE_API_ASYNCDOWNLOAD)
 @Stateless
 public class DownloadAsyncController {
 
@@ -112,8 +112,9 @@ public class DownloadAsyncController {
     @Produces(MediaType.TEXT_HTML)
     public Response showSubmitForm() {
         final String action = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                + "/" + ApiConstants.RESOURCE_API_DOWNLOAD;
+                + "/" + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD;
         final String listLink = action + "/list";
+        //@formatter:off
         final String body = "<h2>Submit Download</h2>"
                 + "<p>Paste a <code>http://</code>, <code>https://</code>, or <code>ftp://</code> URL "
                 + "and click <em>Download</em> to start a chunked Base64 download in the background.</p>"
@@ -125,7 +126,9 @@ public class DownloadAsyncController {
                 + "</table>"
                 + "</form>"
                 + "<p><a href=\"" + listLink + "\">View all active downloads &rsaquo;</a></p>";
-        return Response.ok(htmlService.page("Submit Download", body, "", requestContext.getUsername())).build();
+        return Response.ok(htmlService.page("Submit Download", body, "", requestContext.getUsername()))
+                .build();
+        //@formatter:on
     }
 
     // -------------------------------------------------------------------------
@@ -197,20 +200,21 @@ public class DownloadAsyncController {
 
         final String uuid = task.getUuid();
         final String statusLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                + "/" + ApiConstants.RESOURCE_API_DOWNLOAD + "/" + uuid;
+                + "/" + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD + "/" + uuid;
 
         final List<String[]> rows = new ArrayList<>();
         rows.add(new String[]{"URL", HtmlService.esc(url.trim())});
         rows.add(new String[]{"UUID", HtmlService.esc(uuid)});
         rows.add(new String[]{"Status", "<a href=\"" + statusLink + "\">" + statusLink + "</a>"});
 
+        //@formatter:off
         final String body = "<h2>Download Submitted</h2>"
                 + htmlService.table(new String[]{"Field", "Value"}, rows)
                 + "<p>Reload the status page to check progress.</p>";
-
         return Response.accepted(htmlService.page("Download Submitted", body, "", requestContext.getUsername()))
                 .header(ApiConstants.HEADER_X_BD_UUID, uuid)
                 .build();
+        //@formatter:on
     }
 
     // -------------------------------------------------------------------------
@@ -323,7 +327,7 @@ public class DownloadAsyncController {
             final String btnStyle = "class=\"btn-copy\"";
             for (int i = 1; i <= chunkCount; i++) {
                 final String chunkLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                        + "/" + ApiConstants.RESOURCE_API_DOWNLOAD + "/" + uuid + "/" + i;
+                        + "/" + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD + "/" + uuid + "/" + i;
                 final String chunkFile = name + "." + i + Constants.CHUNK_FILE_EXTENSION;
                 final DownloadChunk chunk = task.getDownloadChunk(i - 1);
 
@@ -334,12 +338,12 @@ public class DownloadAsyncController {
                 if (chunk != null) {
                     final String sha256Win = "certutil -hashfile " + chunkFile + " SHA256";
                     final String sha256Lin = "sha256sum " + chunkFile;
+                    //@formatter:off
                     sha256Cell = "<code>" + chunk.getSha256Hex() + "</code>"
                             + "&thinsp;<button " + btnStyle + " data-cmd=\"" + HtmlService.escAttr(sha256Win) + "\""
                             + " onclick=\"copyCmd(this)\" title=\"certutil\">&#x229e;</button>"
                             + "<button " + btnStyle + " data-cmd=\"" + HtmlService.escAttr(sha256Lin) + "\""
                             + " onclick=\"copyCmd(this)\" title=\"sha256sum\">&#x1f427;</button>";
-
                     final String md5Win = "certutil -hashfile " + chunkFile + " MD5";
                     final String md5Lin = "md5sum " + chunkFile;
                     md5Cell = "<code>" + chunk.getMd5Hex() + "</code>"
@@ -347,13 +351,12 @@ public class DownloadAsyncController {
                             + " onclick=\"copyCmd(this)\" title=\"certutil MD5\">&#x229e;</button>"
                             + "<button " + btnStyle + " data-cmd=\"" + HtmlService.escAttr(md5Lin) + "\""
                             + " onclick=\"copyCmd(this)\" title=\"md5sum\">&#x1f427;</button>";
-
                     final String crc32Lin = "cksum " + chunkFile;
                     crc32Cell = "<code>" + chunk.getCrc32Hex() + "</code>"
                             + "&thinsp;<button " + btnStyle + " data-cmd=\"" + HtmlService.escAttr(crc32Lin) + "\""
                             + " onclick=\"copyCmd(this)\" title=\"cksum\">&#x1f427;</button>";
+                    //@formatter:on
                 }
-
                 chunkRows.add(new String[]{
                         String.valueOf(i),
                         "<a class=\"chunk-link\" href=\"" + chunkLink + "\">" + HtmlService.esc(chunkFile) + "</a>",
@@ -394,9 +397,11 @@ public class DownloadAsyncController {
             body.append("<div class=\"error-box\">&#10060; Download failed: ")
                 .append(HtmlService.esc(task.getErrorMessage())).append("</div>");
         }
-
+        //@formatter:off
         return Response.ok(htmlService.page("Download Status \u2014 " + uuid,
-                body.toString(), extraHead.toString(), requestContext.getUsername())).build();
+                body.toString(), extraHead.toString(), requestContext.getUsername()))
+                .build();
+        //@formatter:on
     }
 
     // -------------------------------------------------------------------------
@@ -445,23 +450,27 @@ public class DownloadAsyncController {
             @Parameter(name = "index", description = "1-based chunk index", in = ParameterIn.PATH, required = true, schema = @Schema(implementation = Integer.class)) @PathParam("index") final int index) {
 
         if (index < 1) {
+            //@formatter:off
             return Response.status(Status.NOT_FOUND)
                     .entity("404 Not Found &mdash; chunk index must be >= 1.")
                     .build();
+            //@formatter:on
         }
-
         final DownloadTask task = registry.retrieve(uuid);
         if (task == null) {
+            //@formatter:off
             return Response.status(Status.NOT_FOUND)
                     .entity("404 Not Found &mdash; no download task with UUID: " + uuid)
                     .build();
+            //@formatter:on
         }
-
         final DownloadChunk downloadChunk = task.getDownloadChunk(index - 1);
         if (downloadChunk == null) {
+            //@formatter:off
             return Response.status(Status.NOT_FOUND)
                     .entity("404 Not Found &mdash; chunk " + index + " is not yet available for UUID: " + uuid)
                     .build();
+            //@formatter:on
         }
 
         final String downloadChunkBase64Content;
@@ -469,18 +478,21 @@ public class DownloadAsyncController {
             downloadChunkBase64Content = downloadChunk.getBase64Content();
         } catch (java.io.IOException e) {
             e.printStackTrace();
+            //@formatter:off
             return Response.status(Status.INTERNAL_SERVER_ERROR)
                     .entity("500 Internal Server Error &mdash; chunk file could not be read.")
                     .build();
+            //@formatter:on
         }
-
         final String filename = task.getOriginalFileName() + "." + index + Constants.CHUNK_FILE_EXTENSION;
+        //@formatter:off
         return Response.ok(downloadChunkBase64Content)
                 .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
                 .header(ApiConstants.HEADER_X_BD_CRC32, downloadChunk.getCrc32Hex())
                 .header(ApiConstants.HEADER_X_BD_MD5, downloadChunk.getMd5Hex())
                 .header(ApiConstants.HEADER_X_BD_SHA256, downloadChunk.getSha256Hex())
                 .build();
+        //@formatter:on
     }
 
     // -------------------------------------------------------------------------
@@ -498,19 +510,19 @@ public class DownloadAsyncController {
      * @return 200 OK with an HTML task-list page
      */
     //@formatter:off
- @Operation(
-  summary = "List all download tasks",
-  description = "Returns an HTML overview of all download tasks in the registry.")
- @APIResponses(value = {
-  @APIResponse(
-   responseCode = "200",
-   description = "Task list page returned successfully.",
-   content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class)))
- })
- @SecurityRequirements(value = {
-  @SecurityRequirement(name = ApiConstants.SECURITY_SCHEME_BASIC),
-  @SecurityRequirement(name = ApiConstants.SECURITY_SCHEME_BEARER)})
- //@formatter:on
+	@Operation(
+	    summary = "List all download tasks",
+	    description = "Returns an HTML overview of all download tasks in the registry.")
+	@APIResponses(value = {
+	    @APIResponse(
+	        responseCode = "200",
+	        description = "Task list page returned successfully.",
+	        content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class)))
+	})
+	@SecurityRequirements(value = {
+	    @SecurityRequirement(name = ApiConstants.SECURITY_SCHEME_BASIC),
+	    @SecurityRequirement(name = ApiConstants.SECURITY_SCHEME_BEARER)})
+	//@formatter:on
     @GET
     @Path("list")
     @Produces(MediaType.TEXT_HTML)
@@ -520,7 +532,7 @@ public class DownloadAsyncController {
         final StringBuilder body = new StringBuilder();
         body.append("<h2>Active Download Tasks</h2>");
         body.append("<p><a href=\"" + Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                + "/" + ApiConstants.RESOURCE_API_DOWNLOAD + "\">&larr; New download</a></p>");
+                + "/" + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD + "\">&larr; New download</a></p>");
 
         if (tasks.isEmpty()) {
             body.append("<p>No download tasks registered.</p>");
@@ -528,7 +540,7 @@ public class DownloadAsyncController {
             final List<String[]> rows = new ArrayList<>();
             for (final DownloadTask task : tasks) {
                 final String statusLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                        + "/" + ApiConstants.RESOURCE_API_DOWNLOAD + "/" + task.getUuid();
+                        + "/" + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD + "/" + task.getUuid();
                 final int available = task.getNumberOfChunks();
                 final int total = task.getTotalChunks();
                 rows.add(new String[]{
@@ -544,8 +556,10 @@ public class DownloadAsyncController {
                     new String[]{"UUID", "File", "Status", "Chunks", "Submitted", "Expires"},
                     rows));
         }
-
-        return Response.ok(htmlService.page("Active Downloads", body.toString(), "", requestContext.getUsername())).build();
+        //@formatter:off
+        return Response.ok(htmlService.page("Active Downloads", body.toString(), "", requestContext.getUsername()))
+                .build();
+        //@formatter:on
     }
 
     // -------------------------------------------------------------------------
@@ -560,12 +574,14 @@ public class DownloadAsyncController {
      * @param btnIcon HTML entity for the button label (e.g. {@code &#x229e;} or {@code &#x1f427;})
      */
     private static void appendCmdRow(final StringBuilder sb, final String cmd, final String btnIcon) {
+        //@formatter:off
         sb.append("<div class=\"flex-row\">")
           .append("<pre>").append(HtmlService.esc(cmd)).append("</pre>")
           .append("<button class=\"btn-copy\" data-cmd=\"").append(HtmlService.escAttr(cmd)).append("\"")
           .append(" onclick=\"copyCmd(this)\" title=\"").append(HtmlService.escAttr(cmd)).append("\">")
           .append(btnIcon).append("</button>")
           .append("</div>");
+        //@formatter:on
     }
 
 }

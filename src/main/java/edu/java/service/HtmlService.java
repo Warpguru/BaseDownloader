@@ -204,7 +204,7 @@ public class HtmlService {
     public String page(final String pageTitle, final String bodyHtml,
             final String extraHeadHtml, final String username) {
         final String homeLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                + "/" + ApiConstants.RESOURCE_API_DOWNLOAD;
+                + "/" + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD;
         final String openApiLink = "/openapi/ui";
         final String logoutLink  = Constants.CONTEXT_ROOT + "/api/login/logout";
 
@@ -304,7 +304,7 @@ public class HtmlService {
                 + "<strong>" + code + " " + reason + "</strong> &mdash; " + esc(message)
                 + "</div>"
                 + "<p><a href=\"" + Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                + "/" + ApiConstants.RESOURCE_API_DOWNLOAD + "\">Back to downloads</a></p>";
+                + "/" + ApiConstants.RESOURCE_API_ASYNCDOWNLOAD + "\">Back to downloads</a></p>";
         return page(code + " " + reason, body, "", username);
     }
 
