@@ -10,6 +10,8 @@ import org.eclipse.microprofile.openapi.annotations.info.Info;
 import org.eclipse.microprofile.openapi.annotations.security.SecurityScheme;
 import org.eclipse.microprofile.openapi.annotations.security.SecuritySchemes;
 
+import edu.java.rest.ApiConstants;
+
 /**
  * JAX-RS application entry point.
  * <p>
@@ -22,11 +24,11 @@ import org.eclipse.microprofile.openapi.annotations.security.SecuritySchemes;
 @SecuritySchemes(
     value = {
         @SecurityScheme(
-            securitySchemeName = "BasicAuthentication",
+            securitySchemeName = ApiConstants.SECURITY_SCHEME_BASIC,
             type = SecuritySchemeType.HTTP,
             scheme = "basic"),
         @SecurityScheme(
-            securitySchemeName = "BearerAuthentication",
+            securitySchemeName = ApiConstants.SECURITY_SCHEME_BEARER,
             type = SecuritySchemeType.HTTP,
             scheme = "bearer",
             bearerFormat = "JWT")})

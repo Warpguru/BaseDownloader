@@ -743,3 +743,81 @@ When `HtmlService` is in place, improve the status page (`getDownloadStatus`) bo
 
 The auto-refresh `<meta>` tag is the only HTML-native way to poll for status without
 JavaScript; it is appropriate here and does not violate the "minimal JS" principle.
+
+  ## Task 14 — Remove `apikey` / `authString` query parameters from `DownloadAsyncController` ☐
+
+**Background:**
+
+The `apikey` and `authString` parameters were introduced before Task 12 as a workaround for
+the fact that browsers do not attach an `Authorization` header when following an `<a href>` link.
+The workaround appended `?apikey=<credential>` to every HTML link so the credential travelled
+through the browser's link-following chain (`list` page → status page → chunk download).
+
+Task 12 added session-based authentication: after a successful `POST /api/login` the browser
+holds an HTTP session cookie, which it sends automatically on every subsequent request —
+including when following a plain `<a href>` link with no query string. The `credSuffix` logic
+is therefore dead code for the primary browser use case, and the `apikey` / `authString`
+parameters serve no remaining purpose.
+
+**What to remove per method:**
+
+### `submitDownload` (`POST /api/download`)
+
+- Remove `@HeaderParam("Authorization") final String authString` parameter (currently unused
+  in the method body after the Task 12 refactor).
+- Remove `@FormParam("apikey") final String apikey` parameter — its only use is to append
+  `?apikey=apikey` to the single status link in the 202 response body; replace that link with
+  a plain bare URL (no query string).
+- Remove the `@Parameter` OpenAPI annotations for both parameters.
+
+### `getDownloadStatus` (`GET /api/download/{uuid}`)
+
+- Remove `@HeaderParam("Authorization") final String authString` parameter.
+- Remove `@QueryParam("apikey") final String apikey` parameter.
+- Remove the `@Parameter` OpenAPI annotations for both parameters.
+- Remove the entire `credSuffix` block (lines computing `credSuffix` from `apikey` / `authString`).
+- Replace all occurrences of `+ credSuffix` in chunk link URLs with nothing — links become
+  plain `/api/download/{uuid}/{n}`.
+- Remove the now-unused `URLEncoder` and `UnsupportedEncodingException` imports if no longer
+  referenced elsewhere in the file.
+
+### `getDownloadChunk` (`GET /api/download/{uuid}/{n}`)
+
+- Remove `@HeaderParam("Authorization") final String authString` parameter (already unused in
+  the method body).
+- Remove `@QueryParam("apikey") final String apikey` parameter (already unused in the method
+  body).
+- Remove the `@Parameter` OpenAPI annotations for both parameters.
+
+### `listDownloads` (`GET /api/download/list`)
+
+- Remove `@HeaderParam("Authorization") final String authString` parameter.
+- Remove `@QueryParam("apikey") final String apikey` parameter.
+- Remove the `@Parameter` OpenAPI annotations for both parameters.
+- Remove the entire `credSuffix` block.
+- Replace `+ credSuffix` in the status link URL with nothing — links become plain
+  `/api/download/{uuid}`.
+
+**What must NOT be changed:**
+
+- The `@SecurityRequirements` annotations on every method — these tell the OpenAPI UI to
+  attach an `Authorization` header, which `AuthFilter` reads as its first authentication
+  mechanism before falling back to the session cookie.
+- The `AuthFilter` exempt-path list, the `CredentialStore`, and the `LoginController` — auth
+  infrastructure is unaffected.
+- The `authString` parameter on `showSubmitForm` — that method has no such parameter to begin
+  with.
+
+**Verification steps after the change:**
+
+1. `mvn package -DskipTests` must produce `BUILD SUCCESS`.
+2. Browser flow: log in via `GET /api/login`, submit a download, navigate to the list page,
+   click a task link — the status page must open without a 401. Chunk links on the status page
+   must download correctly. All of this should work via the session cookie alone.
+3. Programmatic flow: call `GET /api/download/list` with an `Authorization: Bearer <token>`
+   header — the list page must return 200. Click (or `curl`) a status link without any
+   `apikey` — the status page must return 200 if the same `Authorization` header is sent.
+4. OpenAPI UI: authenticate using Basic or Bearer in the UI's Authorize dialog, then invoke
+   any of the four endpoints — they should all return 200.
+
+  }

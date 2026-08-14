@@ -56,6 +56,7 @@ public class DownloadController {
     // Sample download urls:
     // https://repo1.maven.org/maven2/com/github/javadev/qrcode-generator/1.1/qrcode-generator-1.1.jar
     // https://repo1.maven.org/maven2/log4j/log4j/1.2.17/log4j-1.2.17.zip
+    // ftp://demo:password@test.rebex.net/pub/example/KeyGenerator.png
 
     @Inject
     private StreamDownloadService streamDownloadService;
@@ -90,8 +91,8 @@ public class DownloadController {
 	                })
 		  })
 	@SecurityRequirements(value = {
-		@SecurityRequirement(name = "BasicAuthentication"),
-		@SecurityRequirement(name = "BearerAuthentication")})
+		@SecurityRequirement(name = ApiConstants.SECURITY_SCHEME_BASIC),
+		@SecurityRequirement(name = ApiConstants.SECURITY_SCHEME_BEARER)})
 	@GET
 	@Produces(MediaType.TEXT_HTML)
 	@Counted(name = "STS_Counted_DownloadController_Base64Download", displayName = "DownloadController", description = "Download API counter.", absolute = true, unit = MetricUnits.NONE)

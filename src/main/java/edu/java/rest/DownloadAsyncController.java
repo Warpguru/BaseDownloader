@@ -163,8 +163,8 @@ public class DownloadAsyncController {
 			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class)))
 	})
 	@SecurityRequirements(value = {
-		@SecurityRequirement(name = "BasicAuthentication"),
-		@SecurityRequirement(name = "BearerAuthentication")})
+		@SecurityRequirement(name = ApiConstants.SECURITY_SCHEME_BASIC),
+		@SecurityRequirement(name = ApiConstants.SECURITY_SCHEME_BEARER)})
 	//@formatter:on
     @POST
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
@@ -255,8 +255,8 @@ public class DownloadAsyncController {
 			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class)))
 	})
 	@SecurityRequirements(value = {
-		@SecurityRequirement(name = "BasicAuthentication"),
-		@SecurityRequirement(name = "BearerAuthentication")})
+		@SecurityRequirement(name = ApiConstants.SECURITY_SCHEME_BASIC),
+		@SecurityRequirement(name = ApiConstants.SECURITY_SCHEME_BEARER)})
 	//@formatter:on
     @GET
     @Path("{uuid}")
@@ -453,8 +453,8 @@ public class DownloadAsyncController {
 			content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(implementation = String.class)))
 	})
 	@SecurityRequirements(value = {
-		@SecurityRequirement(name = "BasicAuthentication"),
-		@SecurityRequirement(name = "BearerAuthentication")})
+		@SecurityRequirement(name = ApiConstants.SECURITY_SCHEME_BASIC),
+		@SecurityRequirement(name = ApiConstants.SECURITY_SCHEME_BEARER)})
 	//@formatter:on
     @GET
     @Path("{uuid}/{index}")
@@ -512,45 +512,30 @@ public class DownloadAsyncController {
      * Returns an HTML overview page listing all download tasks currently in the registry.
      * <p>
      * Authentication is enforced by the JAX-RS {@code AuthFilter} before this method is invoked.
-     * The credential passed to this page ({@code apikey} or {@code Authorization} header) is
-     * threaded into every status link so the user can navigate without re-entering credentials.
+     * The browser session cookie established by {@code POST /api/login} is sufficient for all
+     * link navigation; no credential query parameter is needed.
      * </p>
      *
-     * @param authString optional {@code Authorization} header &mdash; fallback for link credential suffix
-     * @param apikey     optional API key &mdash; threaded into status links
      * @return 200 OK with an HTML task-list page
      */
     //@formatter:off
-	@Operation(
-		summary = "List all download tasks",
-		description = "Returns an HTML overview of all download tasks in the registry.")
-	@APIResponses(value = {
-		@APIResponse(
-			responseCode = "200",
-			description = "Task list page returned successfully.",
-			content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class)))
-	})
-	@SecurityRequirements(value = {
-		@SecurityRequirement(name = "BasicAuthentication"),
-		@SecurityRequirement(name = "BearerAuthentication")})
-	//@formatter:on
+ @Operation(
+  summary = "List all download tasks",
+  description = "Returns an HTML overview of all download tasks in the registry.")
+ @APIResponses(value = {
+  @APIResponse(
+   responseCode = "200",
+   description = "Task list page returned successfully.",
+   content = @Content(mediaType = MediaType.TEXT_HTML, schema = @Schema(implementation = String.class)))
+ })
+ @SecurityRequirements(value = {
+  @SecurityRequirement(name = ApiConstants.SECURITY_SCHEME_BASIC),
+  @SecurityRequirement(name = ApiConstants.SECURITY_SCHEME_BEARER)})
+ //@formatter:on
     @GET
     @Path("list")
     @Produces(MediaType.TEXT_HTML)
-    public Response listDownloads(
-            @Parameter(name = "Authorization", description = "Optional Basic or Bearer Authorization header", in = ParameterIn.HEADER, required = false, hidden = true, schema = @Schema(implementation = String.class)) @HeaderParam("Authorization") final String authString,
-            @Parameter(name = "apikey", description = "API key (alternative to Authorization header)", in = ParameterIn.QUERY, required = false, schema = @Schema(implementation = String.class)) @QueryParam("apikey") final String apikey) {
-
-        String credSuffix = "";
-        if (apikey != null) {
-            credSuffix = "?apikey=" + apikey;
-        } else if (authString != null) {
-            try {
-                credSuffix = "?apikey=" + java.net.URLEncoder.encode(authString, "UTF-8");
-            } catch (java.io.UnsupportedEncodingException e) {
-                // UTF-8 always supported
-            }
-        }
+    public Response listDownloads() {
 
         final java.util.Collection<DownloadTask> tasks = registry.retrieveAll();
         final StringBuilder body = new StringBuilder();
@@ -564,7 +549,7 @@ public class DownloadAsyncController {
             final List<String[]> rows = new ArrayList<>();
             for (final DownloadTask task : tasks) {
                 final String statusLink = Constants.CONTEXT_ROOT + "/" + Constants.API_BASE
-                        + "/" + ApiConstants.RESOURCE_API_DOWNLOAD + "/" + task.getUuid() + credSuffix;
+                        + "/" + ApiConstants.RESOURCE_API_DOWNLOAD + "/" + task.getUuid();
                 final int available = task.getNumberOfChunks();
                 final int total = task.getTotalChunks();
                 rows.add(new String[]{
