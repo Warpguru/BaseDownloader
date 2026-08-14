@@ -60,9 +60,6 @@ public class ChunkedDownloadService {
     private static final int BUFFER_LENGTH_STREAM = 1 << 16;
 
     @Inject
-    private DownloadTaskRegistry registry;
-
-    @Inject
     private ChunkStorageService chunkStorageService;
 
     /**

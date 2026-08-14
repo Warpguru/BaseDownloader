@@ -46,7 +46,7 @@
 	   <!--
 	       Redirect http://localhost:9080/ (Liberty server root) to the application context root.
 	       welcomePageRedirectEnabled=true makes Liberty issue a 302 to the first deployed
-	       web application (base-downloader) when the server root is requested with no matching app.
+	       web application (BaseDownloader) when the server root is requested with no matching app.
 	   -->
 	   <httpDispatcher welcomePageRedirectEnabled="true"/>
 
@@ -70,6 +70,6 @@
     <variable name="bd.credentials.file" defaultValue="${server.config.dir}/bd-credentials.properties" />
 
     <!-- Configures the application on a specified context root -->
-    <webApplication contextRoot="base-downloader" id="BaseDownloader" location="base-downloader.war" name="BaseDownloader"/>
+    <webApplication contextRoot="BaseDownloader" id="BaseDownloader" location="BaseDownloader-1.0.0.war" name="BaseDownloader"/>
 
 </server>

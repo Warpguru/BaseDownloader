@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>edu.java</groupId>
-	<artifactId>base-downloader</artifactId>
+	<artifactId>BaseDownloader</artifactId>
 	<version>1.0.0</version>
 	<packaging>war</packaging>
 
@@ -86,7 +86,7 @@
 	</dependencies>
 
 	<build>
-		<finalName>base-downloader</finalName>
+		<finalName>BaseDownloader-${project.version}</finalName>
 		<pluginManagement>
 			<plugins>
 				<plugin>

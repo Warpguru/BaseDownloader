@@ -7,7 +7,7 @@
 
     <!--
         Welcome-file list: when a browser requests the application context root
-        (http://localhost:9080/base-downloader/ or http://localhost:9080/base-downloader)
+        (http://localhost:9080/BaseDownloader/ or http://localhost:9080/BaseDownloader)
         Liberty will serve index.html, which contains a meta-refresh redirect to /api/login.
     -->
     <welcome-file-list>

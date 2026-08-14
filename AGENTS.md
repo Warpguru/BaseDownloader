@@ -11,7 +11,7 @@ This file provides guidance to agents when working with code in this repository.
 ## Build & Test Commands
 
 ```bash
-# Build WAR file (creates target/base-downloader.war)
+# Build WAR file (creates target/BaseDownloader-1.0.0.war)
 mvn clean package
 
 # Start Liberty server with application deployed
@@ -24,7 +24,7 @@ mvn liberty:stop
 mvn test
 ```
 
-**Key**: The project builds a WAR file named `base-downloader` deployed to Liberty at context root `/base-downloader`.
+**Key**: The project builds a WAR file named `base-downloader` deployed to Liberty at context root `/BaseDownloader`.
 
 ## Code Organization & Architecture
 
@@ -60,7 +60,7 @@ Authentication is implemented as a **JAX-RS `ContainerRequestFilter`** ([`AuthFi
 1. `Authorization` header — Basic (`username:password` Base64-encoded) or Bearer (raw token) validated against [`CredentialStore`](src/main/java/edu/java/security/CredentialStore.java).
 2. HTTP session attribute `bd.authenticated.username` set by `POST /api/login`.
 
-**Exempt paths** (no auth required): `/base-downloader/api/login`, `/base-downloader/api/login/logout`, `/base-downloader/api/info`, `/health`, `/metrics`, `/openapi`, `/api/docs`, `/api/explorer`.
+**Exempt paths** (no auth required): `/BaseDownloader/api/login`, `/BaseDownloader/api/login/logout`, `/BaseDownloader/api/info`, `/health`, `/metrics`, `/openapi`, `/api/docs`, `/api/explorer`.
 
 **Credential store** ([`CredentialStore`](src/main/java/edu/java/security/CredentialStore.java)): a `@Singleton` EJB that reads `src/main/liberty/config/bd-credentials.properties` at startup and reloads it every minute via `@Schedule`. Format: one line per user — `username=password:token`. The credential file path is configurable via the MicroProfile Config property `bd.credentials.file` (Liberty `<variable>`).
 
@@ -157,7 +157,7 @@ The main feature is the async chunked download at `/api/asyncdownload`:
 
 Configuration is in [`src/main/liberty/config/server.xml`](src/main/liberty/config/server.xml). Key settings:
 - HTTP endpoint: port `9080`, HTTPS: port `9443`, host `*`
-- Application deployed at context root `base-downloader`
+- Application deployed at context root `BaseDownloader`
 - Features enabled: `jakartaee-8.0`, `microProfile-4.1`, `adminCenter-1.0`, `restConnector-2.0`, `localConnector-1.0`
 - Metrics: `/metrics` endpoint active (`mpMetrics authentication="false"`)
 - Access logging enabled on the HTTP endpoint

@@ -10,8 +10,8 @@ plain-text chunks and reassembling them locally.
 
 ### Overview
 
-BaseDownloader is deployed as a WAR to IBM Liberty at context root `/base-downloader`.
-All REST endpoints are rooted at `/base-downloader/api`. Every HTML page is served by the
+BaseDownloader is deployed as a WAR to IBM Liberty at context root `/BaseDownloader`.
+All REST endpoints are rooted at `/BaseDownloader/api`. Every HTML page is served by the
 application itself (no external CSS, JavaScript frameworks, or CDN dependencies).
 
 ---
@@ -249,8 +249,8 @@ sequenceDiagram
 
 | Method | Path | Auth required | Description |
 |---|---|---|---|
-| `GET` | `/` | — | Redirects to `/base-downloader/` (Liberty `httpDispatcher`) |
-| `GET` | `/base-downloader/` | — | Redirects to `/api/login` (welcome-file `index.html`) |
+| `GET` | `/` | — | Redirects to `/BaseDownloader/` (Liberty `httpDispatcher`) |
+| `GET` | `/BaseDownloader/` | — | Redirects to `/api/login` (welcome-file `index.html`) |
 | `GET` | `/api/info` | — | Health check — returns plain-text `OK` |
 | `GET` | `/api/login` | — | HTML login form |
 | `POST` | `/api/login` | — | Validate username + password + token; creates session on success |
@@ -269,7 +269,7 @@ OpenAPI / Swagger UI: `http://localhost:9080/openapi/ui`
 ## 4. Authentication
 
 #### Browser login
-Navigate to `http://localhost:9080/base-downloader/api/login`. Enter your username, password,
+Navigate to `http://localhost:9080/BaseDownloader/api/login`. Enter your username, password,
 and token. On success you are redirected to the download form. To log out, visit
 `/api/login/logout`.
 
@@ -344,7 +344,7 @@ All configuration is in `src/main/liberty/config/server.xml`.
 
 This section explains how to configure a standalone OpenLiberty (or WebSphere Liberty) server
 to host BaseDownloader. If you only need a local development server, skip to
-[Build & Run](#build--run) — `mvn liberty:run` handles everything automatically.
+[Build & Run](#7-build-run) — `mvn liberty:run` handles everything automatically.
 
 ---
 
@@ -450,11 +450,11 @@ Location: `/opt/wlp/usr/servers/base-downloader/server.xml`
 	<logging maxFileSize="20" maxFiles="10" traceFileName="trace.log" traceFormat="BASIC" traceSpecification="eclipselink.sql=all"/>
 	
    	<!--
-       	Redirect http://localhost:9080/ (Liberty server root) to the application context root.
-      	welcomePageRedirectEnabled=true makes Liberty issue a 302 to the first deployed
-       	eb application (base-downloader) when the server root is requested with no matching app.
+   	   	Redirect http://localhost:9080/ (Liberty server root) to the application context root.
+   	  	welcomePageRedirectEnabled=true makes Liberty issue a 302 to the first deployed
+   	   	web application (BaseDownloader) when the server root is requested with no matching app.
    	-->
-	<httpDispatcher welcomePageRedirectEnabled="true"/>
+ <httpDispatcher welcomePageRedirectEnabled="true"/>
     
     <!--
         Credential file for BaseDownloader authentication.
@@ -468,10 +468,7 @@ Location: `/opt/wlp/usr/servers/base-downloader/server.xml`
     <!-- DownloadChunk storage directory; override with <variable name="bd.chunk.dir" value="/your/path"/> -->
     <variable name="bd.chunk.dir" defaultValue="${java.io.tmpdir}Base-Downloader" />
     
-    <!-- 
-    <webApplication contextRoot="base-downloader" id="BaseDownloader" location="base-downloader.war" name="BaseDownloader"/>
-    -->
-    <webApplication contextRoot="base-downloader" id="BaseDownloader" location="base-downloader.war" name="BaseDownloader"/>
+    <webApplication contextRoot="BaseDownloader" id="BaseDownloader" location="BaseDownloader-1.0.0.war" name="BaseDownloader"/>
     
 </server>
 ```
@@ -487,6 +484,8 @@ Location: `/opt/wlp/usr/servers/base-downloader/jvm.options`
 -Dxjavax.net.debug=all
 -Xms512m
 -Xmx2048m
+# Enable logger debugging.
+#-Dlog4j2.debug=true
 # Enable verbose output for class loading.
 #-verbose:class
 
@@ -509,6 +508,7 @@ Location: `/opt/wlp/usr/servers/base-downloader/server.env`
 
 ```text
 # WLP specific settings (keystore_password will be added upon first server start)
+keystore_password=********
 WLP_SKIP_MAXPERMSIZE=true
 WLP_KEYSTORE_PASSWORD=liberty
 WLP_ADMIN_USERID=admin
@@ -527,11 +527,6 @@ default.jms.port=7276
 default.jmss.port=7286
 # Define IIOP ports (defaults 2809)
 default.iiop.port=2809
- 
-# Overwriting property in liberty-maven-plugin
-#project.basedir=X:/path/BaseDownloader
-#project.build.directory=X:/path/BaseDownloader/target
-#logback-file=logback.xml
  
 # Define logging (alternative to server.xml) (see: https://www.ibm.com/support/knowledgecenter/SSEQTP_liberty/com.ibm.websphere.wlp.doc/ae/rwlp_logging.html)
 #com.ibm.ws.logging.trace.file.name="stdout" (logging to "stdout" prevents server from starting)
@@ -577,7 +572,7 @@ Build the WAR and copy it to the Liberty `apps` directory:
 
 ```bash
 mvn clean package
-cp target/base-downloader.war /opt/wlp/usr/servers/base-downloader/apps/
+cp target/BaseDownloader-1.0.0.war /opt/wlp/usr/servers/base-downloader/apps/
 ```
 
 With `<applicationManager autoExpand="true"/>` Liberty expands the WAR into a directory
@@ -614,9 +609,9 @@ Log files are written to:
 
 | URL | Expected result |
 |---|---|
-| `http://host:9080/` | Redirects to `/base-downloader/api/login` |
-| `http://host:9080/base-downloader/api/login` | HTML login form |
-| `http://host:9080/base-downloader/api/info` | Plain-text `OK` |
+| `http://host:9080/` | Redirects to `/BaseDownloader/api/login` |
+| `http://host:9080/BaseDownloader/api/login` | HTML login form |
+| `http://host:9080/BaseDownloader/api/info` | Plain-text `OK` |
 | `http://host:9080/openapi/ui` | OpenAPI / Swagger UI |
 | `https://host:9443/adminCenter` | Liberty Admin Center (Liberty admin credentials) |
 | `http://host:9080/metrics` | MicroProfile Metrics (no credentials required) |
@@ -643,7 +638,7 @@ Note: use `value=` (not `defaultValue=`) to unconditionally override the path.
 ## 7. Build & Run
 
 ```bash
-# Build WAR (creates target/base-downloader.war)
+# Build WAR (creates target/BaseDownloader-1.0.0.war)
 mvn clean package
 
 # Start Liberty with the application deployed
@@ -653,4 +648,4 @@ mvn liberty:run
 mvn package -DskipTests
 ```
 
-Application URL: `http://localhost:9080/base-downloader/`
+Application URL: `http://localhost:9080/BaseDownloader/`

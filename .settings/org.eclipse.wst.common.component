@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?><project-modules id="moduleCoreId" project-version="1.5.0">
         
-    <wb-module deploy-name="base-downloader">
+    <wb-module deploy-name="BaseDownloader-1.0.0">
                 
         <wb-resource deploy-path="/" source-path="/target/m2e-wtp/web-resources"/>
                 
@@ -12,9 +12,8 @@
                 
         <wb-resource deploy-path="/WEB-INF/classes" source-path="/.apt_generated"/>
                 
-        <property name="context-root" value="base-downloader"/>
-                
         <property name="java-output-path" value="/BaseDownloader/target/classes"/>
+        <property name="context-root" value="BaseDownloader"/>
             
     </wb-module>
     

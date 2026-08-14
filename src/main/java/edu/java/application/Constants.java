@@ -67,10 +67,10 @@ public final class Constants {
     // -------------------------------------------------------------------------
 
     /**
-     * Servlet context root as deployed on Liberty (matches {@code contextRoot} in {@code server.xml} and the WAR artifact id in
-     * {@code pom.xml}). Used to build absolute href values in HTML responses.
+     * Servlet context root as deployed on Liberty (matches {@code contextRoot} in {@code server.xml}).
+     * Used to build absolute href values in HTML responses.
      */
-    public static final String CONTEXT_ROOT = "/base-downloader";
+    public static final String CONTEXT_ROOT = "/BaseDownloader";
 
     /**
      * JAX-RS application base path (value of {@code @ApplicationPath}). Controllers are mounted under
